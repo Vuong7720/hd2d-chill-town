@@ -45,6 +45,7 @@ export class WeatherSystem {
     private tmpColC = new THREE.Color();
     private activeLampIntensity = MOODS.dawn.lampIntensity;
     private activeWindowEmissive = MOODS.dawn.windowEmissive;
+    private lastSubtitle = '';
 
     private festivalGarlandGroup = new THREE.Group();
     private festivalLanternMeshes: FestivalLantern[] = [];
@@ -363,7 +364,8 @@ export class WeatherSystem {
         const { engine, post, waterUniforms, cobbleMat, windowGlassMat, mountainMeshes } = params;
 
         const subtitleEl = document.getElementById('mood-subtitle');
-        if (subtitleEl) {
+        if (subtitleEl && subtitleText !== this.lastSubtitle) {
+            this.lastSubtitle = subtitleText;
             subtitleEl.textContent = subtitleText;
         }
 

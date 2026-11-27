@@ -2,10 +2,53 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { MoodKey } from '../types';
+
+const TiltShiftShader = {
+    uniforms: {
+        tDiffuse: { value: null },
+        uFocusY: { value: 0.46 },
+        uBlurStrength: { value: 0.0014 },
+        uAspect: { value: window.innerWidth / window.innerHeight },
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float uFocusY;
+        uniform float uBlurStrength;
+        uniform float uAspect;
+        varying vec2 vUv;
+
+        void main() {
+            float dist = abs(vUv.y - uFocusY);
+            float blurAmt = smoothstep(0.28, 0.52, dist) * uBlurStrength;
+
+            vec4 sum = vec4(0.0);
+            vec2 offX = vec2(blurAmt / uAspect, 0.0);
+            vec2 offY = vec2(0.0, blurAmt);
+
+            sum += texture2D(tDiffuse, vUv) * 0.24;
+            sum += texture2D(tDiffuse, vUv + offX) * 0.12;
+            sum += texture2D(tDiffuse, vUv - offX) * 0.12;
+            sum += texture2D(tDiffuse, vUv + offY) * 0.12;
+            sum += texture2D(tDiffuse, vUv - offY) * 0.12;
+            sum += texture2D(tDiffuse, vUv + offX + offY) * 0.07;
+            sum += texture2D(tDiffuse, vUv - offX + offY) * 0.07;
+            sum += texture2D(tDiffuse, vUv + offX - offY) * 0.07;
+            sum += texture2D(tDiffuse, vUv - offX - offY) * 0.07;
+
+            gl_FragColor = sum;
+        }
+    `,
+};
 
 const ColorGradingShader = {
     uniforms: {
@@ -49,7 +92,7 @@ const ColorGradingShader = {
 export class PostProcessing {
     public readonly composer: EffectComposer;
     public readonly bloomPass: UnrealBloomPass;
-    public readonly bokehPass: BokehPass;
+    public readonly bokehPass: ShaderPass;
     public readonly colorGradingPass: ShaderPass;
     public readonly raysGroup: THREE.Group;
     public readonly rayUniforms: {
@@ -119,11 +162,7 @@ export class PostProcessing {
         );
         this.composer.addPass(this.bloomPass);
 
-        this.bokehPass = new BokehPass(scene, camera, {
-            focus: 17.5,
-            aperture: 0.00032,
-            maxblur: 0.013,
-        });
+        this.bokehPass = new ShaderPass(TiltShiftShader);
         this.composer.addPass(this.bokehPass);
 
         this.colorGradingPass = new ShaderPass(ColorGradingShader);
@@ -131,11 +170,8 @@ export class PostProcessing {
         this.composer.addPass(new OutputPass());
     }
 
-    public setFocusDistance(distance: number): void {
-        const uniforms = this.bokehPass.uniforms as Record<string, THREE.IUniform>;
-        if (uniforms['focus']) {
-            uniforms['focus'].value = THREE.MathUtils.clamp(distance, 4.0, 40.0);
-        }
+    public setFocusDistance(_distance: number): void {
+        // Lightweight Tilt-Shift requires no depth pass
     }
 
     public setMoodGrading(mood: MoodKey): void {
@@ -167,10 +203,7 @@ export class PostProcessing {
 
     public resize(): void {
         this.composer.setSize(window.innerWidth, window.innerHeight);
-        const uniforms = this.bokehPass.uniforms as Record<string, THREE.IUniform>;
-        if (uniforms['aspect']) {
-            uniforms['aspect'].value = window.innerWidth / window.innerHeight;
-        }
+        this.bokehPass.uniforms['uAspect'].value = window.innerWidth / window.innerHeight;
     }
 
     public render(): void {
