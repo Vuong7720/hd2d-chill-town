@@ -47,8 +47,8 @@ async function bootstrap(): Promise<void> {
     const world = new WorldContext();
     const assets = new AssetLoader();
 
-    const { waterUniforms } = buildTerrain(engine.scene, world);
-    const [{ windowGlassMat, shrineCrystal }, { waterWheelGroup, interactiveLamps }, { foliageSprites, swayingBushes, mountainMeshes }] =
+    const { waterUniforms, goddessLight, goddessGlowMat } = buildTerrain(engine.scene, world);
+    const [{ windowGlassMat, shrineCrystal }, { waterWheelGroup, windmillSail, interactiveLamps }, { foliageSprites, swayingBushes, mountainMeshes }] =
         await Promise.all([
             buildArchitecture(engine.scene, world, assets),
             buildProps(engine.scene, world, assets),
@@ -249,9 +249,15 @@ async function bootstrap(): Promise<void> {
         waterUniforms.uTime.value = elapsed;
         post.rayUniforms.uTime.value = elapsed;
         waterWheelGroup.rotation.x = elapsed * 1.15;
+        if (windmillSail) {
+            windmillSail.rotation.z = -elapsed * (0.35 + weather.windSpeed * 0.45);
+        }
 
         const baseLampInt = weather.getActiveLampIntensity() * weather.currentLampBoost;
         const winEmissive = weather.getActiveWindowEmissive();
+        const goddessPulse = Math.sin(elapsed * 1.8) * 0.14;
+        goddessGlowMat.emissiveIntensity = 0.25 + winEmissive * 0.95 + goddessPulse;
+        goddessLight.intensity = 0.65 + winEmissive * 2.1 + goddessPulse * 0.8;
         interactiveLamps.forEach((lamp, idx) => {
             if (!lamp.isOn) {
                 lamp.light.intensity = 0;

@@ -1,3 +1,6 @@
+export const DEFAULT_YOUTUBE_URL =
+    'https://www.youtube.com/watch?v=Gio1Ss0p0dE&list=RDGio1Ss0p0dE&start_radio=1';
+
 export interface LocalTrack {
     name: string;
     url: string;
@@ -12,7 +15,7 @@ export class MusicPlayer {
     public isPlaying = false;
     public shuffle = false;
     public repeatOne = false;
-    public musicVolume = 0.7;
+    public musicVolume = 0.3;
 
     private audioEl: HTMLAudioElement;
     private audioCtx: AudioContext | null = null;
@@ -22,10 +25,25 @@ export class MusicPlayer {
 
     private ytIframe: HTMLIFrameElement | null = null;
     private ytLabel = 'YouTube Việt Nam Chill';
+    private hasUserInteracted = false;
+    private userPaused = false;
 
     public onStateChange?: () => void;
 
     constructor() {
+        const onFirstGesture = () => {
+            if (this.hasUserInteracted) return;
+            this.hasUserInteracted = true;
+            if (this.mode === 'youtube' && this.ytIframe && !this.userPaused) {
+                this.postYtCommand('unMute');
+                this.postYtCommand('setVolume', [Math.round(this.musicVolume * 100)]);
+                this.postYtCommand('playVideo');
+                this.isPlaying = true;
+                this.onStateChange?.();
+            }
+        };
+        window.addEventListener('pointerdown', onFirstGesture, { once: true, capture: true });
+        window.addEventListener('keydown', onFirstGesture, { once: true, capture: true });
         this.audioEl = new Audio();
         this.audioEl.crossOrigin = 'anonymous';
 
@@ -112,10 +130,15 @@ export class MusicPlayer {
     public togglePlay(): void {
         if (this.mode === 'youtube') {
             if (!this.ytIframe) return;
+            this.hasUserInteracted = true;
             if (this.isPlaying) {
+                this.userPaused = true;
                 this.postYtCommand('pauseVideo');
                 this.isPlaying = false;
             } else {
+                this.userPaused = false;
+                this.postYtCommand('unMute');
+                this.postYtCommand('setVolume', [Math.round(this.musicVolume * 100)]);
                 this.postYtCommand('playVideo');
                 this.isPlaying = true;
             }
@@ -204,21 +227,30 @@ export class MusicPlayer {
         return sum / (6 * 255);
     }
 
-    public loadYouTubeUrl(rawUrl: string): boolean {
+    public loadYouTubeUrl(rawUrl: string, allowMutedAutoplay = false): boolean {
         const parsed = this.parseYouTubeUrl(rawUrl.trim());
         if (!parsed) return false;
 
         this.audioEl.pause();
         this.mode = 'youtube';
+        this.userPaused = false;
 
         const container = document.getElementById('yt-player-frame');
         if (!container) return false;
 
         const origin = encodeURIComponent(window.location.origin);
-        const embedSrc =
-            parsed.type === 'playlist'
-                ? `https://www.youtube.com/embed/videoseries?list=${parsed.id}&autoplay=1&enablejsapi=1&rel=0&origin=${origin}`
-                : `https://www.youtube.com/embed/${parsed.id}?autoplay=1&enablejsapi=1&rel=0&origin=${origin}`;
+        const muteParam = allowMutedAutoplay && !this.hasUserInteracted ? '&mute=1' : '';
+        let embedSrc = '';
+        if (parsed.type === 'playlist') {
+            if (parsed.videoId) {
+                const idxParam = parsed.index ? `&index=${encodeURIComponent(parsed.index)}` : '';
+                embedSrc = `https://www.youtube.com/embed/${parsed.videoId}?list=${parsed.id}${idxParam}&autoplay=1${muteParam}&playsinline=1&enablejsapi=1&rel=0&origin=${origin}`;
+            } else {
+                embedSrc = `https://www.youtube.com/embed/videoseries?list=${parsed.id}&autoplay=1${muteParam}&playsinline=1&enablejsapi=1&rel=0&origin=${origin}`;
+            }
+        } else {
+            embedSrc = `https://www.youtube.com/embed/${parsed.id}?autoplay=1${muteParam}&playsinline=1&enablejsapi=1&rel=0&origin=${origin}`;
+        }
 
         container.innerHTML = '';
         const iframe = document.createElement('iframe');
@@ -229,7 +261,13 @@ export class MusicPlayer {
         iframe.allowFullscreen = true;
         iframe.className = 'w-full rounded-lg border-0';
         iframe.addEventListener('load', () => {
-            this.postYtCommand('setVolume', [Math.round(this.musicVolume * 100)]);
+            if (this.hasUserInteracted || !allowMutedAutoplay) {
+                this.postYtCommand('unMute');
+                this.postYtCommand('setVolume', [Math.round(this.musicVolume * 100)]);
+                if (!this.userPaused) {
+                    this.postYtCommand('playVideo');
+                }
+            }
         });
         container.appendChild(iframe);
         this.ytIframe = iframe;
@@ -247,12 +285,15 @@ export class MusicPlayer {
         );
     }
 
-    private parseYouTubeUrl(url: string): { type: 'video' | 'playlist'; id: string } | null {
+    private parseYouTubeUrl(
+        url: string
+    ): { type: 'video' | 'playlist'; id: string; videoId?: string; index?: string } | null {
         try {
             const u = new URL(url);
             const listId = u.searchParams.get('list');
-            if (listId) return { type: 'playlist', id: listId };
             const vId = u.searchParams.get('v');
+            const index = u.searchParams.get('index') || undefined;
+            if (listId) return { type: 'playlist', id: listId, videoId: vId || undefined, index };
             if (vId) return { type: 'video', id: vId };
             if (u.hostname.includes('youtu.be')) {
                 const seg = u.pathname.replace('/', '');

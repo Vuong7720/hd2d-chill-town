@@ -7,6 +7,7 @@ import townMap from '../data/town_map.json';
 
 export interface PropRefs {
     waterWheelGroup: THREE.Group;
+    windmillSail: THREE.Group | null;
     interactiveLamps: InteractiveLamp[];
 }
 
@@ -43,18 +44,62 @@ export async function buildProps(
     }
     scene.add(waterWheelGroup);
 
-    // Decorative Windmill on Northwest Hill
+    // Stone & Timber Windmill Tower + Spinning Sail Blades on Northwest Hill
+    const wm = townMap.windmill;
+    const windmillGroup = new THREE.Group();
+    windmillGroup.position.set(wm.x, wm.y, wm.z);
+    windmillGroup.rotation.y = 0.45;
+    windmillGroup.add(ctx.createContactShadow(4.0, 4.0, 0.015));
+
+    const towerBase = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.75, 1.1, 8), ctx.stoneWallMat);
+    towerBase.position.y = 0.55;
+    towerBase.castShadow = true;
+    towerBase.receiveShadow = true;
+    windmillGroup.add(towerBase);
+
+    const plasterMat = new THREE.MeshStandardMaterial({ color: 0xf1e8d6, roughness: 0.85 });
+    const towerBody = new THREE.Mesh(new THREE.CylinderGeometry(1.12, 1.48, 4.0, 8), plasterMat);
+    towerBody.position.y = 3.1;
+    towerBody.castShadow = true;
+    towerBody.receiveShadow = true;
+    windmillGroup.add(towerBody);
+
+    const roofPbrWm = generateRoofPBR('#b94a3e', '#d96b5f', '#7c2d25');
+    const wmRoofMat = new THREE.MeshStandardMaterial({
+        map: roofPbrWm.map,
+        normalMap: roofPbrWm.normalMap,
+        roughness: 0.78,
+    });
+    const towerRoof = new THREE.Mesh(new THREE.ConeGeometry(1.48, 1.6, 8), wmRoofMat);
+    towerRoof.position.y = 5.85;
+    towerRoof.castShadow = true;
+    windmillGroup.add(towerRoof);
+
+    const wmDoor = new THREE.Mesh(new THREE.BoxGeometry(0.75, 1.2, 0.2), ctx.woodMat);
+    wmDoor.position.set(0, 0.65, 1.56);
+    windmillGroup.add(wmDoor);
+
+    const wmAxle = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.65, 8), ctx.timberMat);
+    wmAxle.rotation.x = Math.PI / 2;
+    wmAxle.position.set(0, 4.55, 1.25);
+    windmillGroup.add(wmAxle);
+
+    let windmillSail: THREE.Group | null = null;
     try {
-        const windmill = await assets.instantiateModel('./assets/models/windmill.glb', 6.2);
-        const wm = townMap.windmill;
-        windmill.position.set(wm.x, wm.y, wm.z);
-        windmill.rotation.y = 0.45;
-        windmill.add(ctx.createContactShadow(3.6, 3.6, 0.015));
-        scene.add(windmill);
-        ctx.addCollider(wm.x - 1.4, wm.x + 1.4, wm.z - 1.4, wm.z + 1.4);
+        const sailModel = await assets.instantiateModel('./assets/models/windmill.glb', 5.2);
+        const sailPivot = new THREE.Group();
+        sailPivot.position.set(0, 4.55, 1.48);
+        sailModel.rotation.y = Math.PI / 2;
+        sailModel.position.set(0, -2.6, 0);
+        sailPivot.add(sailModel);
+        windmillGroup.add(sailPivot);
+        windmillSail = sailPivot;
     } catch {
-        // Optional landmark
+        // Optional landmark blades
     }
+
+    scene.add(windmillGroup);
+    ctx.addCollider(wm.x - 1.65, wm.x + 1.65, wm.z - 1.65, wm.z + 1.65);
 
     // Compact Stone Wells matching HD-2D scale
     const roofRedPbr = generateRoofPBR('#b94a3e', '#d96b5f', '#7c2d25');
@@ -226,5 +271,5 @@ export async function buildProps(
         })
     );
 
-    return { waterWheelGroup, interactiveLamps };
+    return { waterWheelGroup, windmillSail, interactiveLamps };
 }

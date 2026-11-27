@@ -1,4 +1,4 @@
-import { MusicPlayer } from '../systems/MusicPlayer';
+import { DEFAULT_YOUTUBE_URL, MusicPlayer } from '../systems/MusicPlayer';
 import { AudioEngine } from '../systems/AudioEngine';
 
 function formatTime(sec: number): string {
@@ -40,8 +40,22 @@ export class MusicPlayerUI {
     private isSeeking = false;
 
     constructor(private player: MusicPlayer, private audio: AudioEngine) {
+        const isMobile =
+            window.innerWidth < 768 || window.matchMedia('(pointer: coarse)').matches;
+        if (isMobile) {
+            this.panelEl.classList.add('hud-collapsed');
+        }
+
         this.toggleBtn.addEventListener('click', () => {
+            const willOpen = this.panelEl.classList.contains('hud-collapsed');
+            if (willOpen && (window.innerWidth < 768 || window.matchMedia('(pointer: coarse)').matches)) {
+                document.getElementById('hud-panel')?.classList.add('hud-collapsed');
+            }
             this.panelEl.classList.toggle('hud-collapsed');
+        });
+
+        document.getElementById('close-music-btn')?.addEventListener('click', () => {
+            this.panelEl.classList.add('hud-collapsed');
         });
 
         this.playBtn.addEventListener('click', () => this.player.togglePlay());
@@ -105,6 +119,11 @@ export class MusicPlayerUI {
         });
 
         this.player.onStateChange = () => this.refreshUI();
+
+        // Mặc định mở sẵn tab YouTube và phát link nhạc mặc định khi khởi động
+        this.ytInput.value = DEFAULT_YOUTUBE_URL;
+        this.switchTab('youtube');
+        this.player.loadYouTubeUrl(DEFAULT_YOUTUBE_URL, true);
         this.refreshUI();
     }
 

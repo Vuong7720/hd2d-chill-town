@@ -19,6 +19,7 @@ body {
     inset: 0;
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     z-index: 1;
 }
 
@@ -43,12 +44,24 @@ input[type="range"]::-webkit-slider-thumb {
     border: 2px solid #fffbeb;
 }
 
+button {
+    touch-action: manipulation;
+}
+
 .hud-panel {
     transition: opacity 0.25s ease, transform 0.25s ease;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+}
+
+#music-playlist {
+    touch-action: pan-y;
+    overscroll-behavior: contain;
 }
 
 .hud-collapsed {
     opacity: 0;
-    pointer-events: none;
+    pointer-events: none !important;
+    visibility: hidden;
     transform: translateY(-8px) scale(0.98);
 }

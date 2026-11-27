@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>HD-2D Diorama - Thị Trấn Bên Suối (4x Map & Lễ Hội)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,105 +21,114 @@
     <!-- Fullscreen 3D Canvas Container -->
     <div id="canvas-container"></div>
 
-    <!-- Top-Left Title, Controls Guide & Chill Music Player -->
-    <div class="fixed top-4 left-4 z-20 max-w-xs sm:max-w-sm">
-        <div class="pointer-events-none">
-            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-950/65 backdrop-blur-md border border-white/15 text-amber-300 text-xs font-medium shadow-lg">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span class="pixel-font tracking-wider">HD-2D RPG</span>
-                <span class="text-slate-400">|</span>
-                <span id="mood-subtitle" class="text-slate-100">Sương Sớm Trong Lành</span>
-            </div>
-            <p class="mt-1.5 text-[11px] sm:text-xs text-slate-100/95 drop-shadow-[0_1px_4px_rgba(0,0,0,0.85)] leading-relaxed">
-                <span class="font-semibold text-amber-300">WASD / Mũi tên</span> hoặc <span class="font-semibold text-amber-300">Click đất</span> • <span class="font-semibold text-emerald-300">[E]</span> tương tác
-            </p>
-        </div>
-
-        <button id="toggle-music-btn" class="mt-2 px-3 py-1.5 rounded-xl bg-slate-950/75 hover:bg-slate-900/90 backdrop-blur-md border border-amber-400/40 text-amber-200 text-xs font-medium shadow-lg flex items-center gap-1.5 transition cursor-pointer">
-            <span>🎧</span>
-            <span>Trình phát nhạc Chill</span>
-        </button>
-
-        <div id="music-panel" class="hud-panel mt-2 w-72 sm:w-80 rounded-2xl bg-slate-950/80 backdrop-blur-xl border border-white/15 p-3.5 text-slate-100 shadow-2xl">
-            <div class="flex items-center justify-between gap-2 mb-2">
-                <div id="music-title" class="text-xs font-semibold text-amber-200 truncate flex-1">Chưa có bài hát</div>
-            </div>
-
-            <!-- Seek Bar -->
-            <div class="flex items-center gap-2 mb-2.5">
-                <span id="music-time-cur" class="text-[10px] font-mono text-slate-400 w-7">0:00</span>
-                <input type="range" id="music-seek" min="0" max="100" step="0.5" value="0" class="flex-1">
-                <span id="music-time-dur" class="text-[10px] font-mono text-slate-400 w-7 text-right">0:00</span>
-            </div>
-
-            <!-- Playback Controls -->
-            <div class="flex items-center justify-center gap-3 mb-3">
-                <button id="music-shuffle-btn" title="Xáo trộn" class="text-sm text-slate-400 hover:text-white transition cursor-pointer">🔀</button>
-                <button id="music-prev-btn" title="Bài trước" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs transition cursor-pointer">⏮</button>
-                <button id="music-play-btn" title="Phát / Tạm dừng" class="w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold flex items-center justify-center text-sm shadow-lg transition cursor-pointer">▶</button>
-                <button id="music-next-btn" title="Bài tiếp" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs transition cursor-pointer">⏭</button>
-                <button id="music-repeat-btn" title="Lặp lại 1 bài" class="text-sm text-slate-400 hover:text-white transition cursor-pointer">🔁</button>
-            </div>
-
-            <!-- Dual Volume Mixers -->
-            <div class="grid grid-cols-2 gap-2.5 mb-3 p-2 rounded-xl bg-white/5 border border-white/10">
-                <div>
-                    <div class="text-[10px] text-slate-300 mb-1">🎵 Âm lượng nhạc</div>
-                    <input type="range" id="music-vol-slider" min="0" max="1" step="0.05" value="0.7" class="w-full">
+    <!-- Top Bar: Left (Title & Music) + Right (Audio & Scene Studio) -->
+    <div class="fixed top-3 inset-x-3 sm:top-4 sm:inset-x-4 z-20 flex items-start justify-between gap-2 pointer-events-none">
+        <!-- Top-Left Title, Controls Guide & Chill Music Player -->
+        <div class="pointer-events-auto flex flex-col items-start min-w-0">
+            <div class="pointer-events-none max-w-full">
+                <div class="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-slate-950/65 backdrop-blur-md border border-white/15 text-amber-300 text-[11px] sm:text-xs font-medium shadow-lg max-w-full">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+                    <span class="pixel-font tracking-wider shrink-0">HD-2D<span class="hidden sm:inline"> RPG</span></span>
+                    <span class="text-slate-400 shrink-0">|</span>
+                    <span id="mood-subtitle" class="text-slate-100 truncate">Sương Sớm Trong Lành</span>
                 </div>
-                <div>
-                    <div class="text-[10px] text-slate-300 mb-1">🌧️ Mưa &amp; Suối</div>
-                    <input type="range" id="ambient-vol-slider" min="0" max="0.8" step="0.02" value="0.36" class="w-full">
-                </div>
+                <p class="hidden sm:block mt-1.5 text-xs text-slate-100/95 drop-shadow-[0_1px_4px_rgba(0,0,0,0.85)] leading-relaxed">
+                    <span class="font-semibold text-amber-300">WASD / Mũi tên</span> hoặc <span class="font-semibold text-amber-300">Click đất</span> • <span class="font-semibold text-emerald-300">[E]</span> tương tác
+                </p>
             </div>
 
-            <!-- Source Tabs -->
-            <div class="flex gap-1.5 mb-2">
-                <button id="tab-local-music" class="flex-1 py-1.5 rounded-lg text-[11px] font-medium bg-amber-500/30 text-amber-200 border border-amber-400/50 cursor-pointer">
-                    📁 Nhạc máy tính
-                </button>
-                <button id="tab-yt-music" class="flex-1 py-1.5 rounded-lg text-[11px] font-medium bg-white/5 text-slate-300 border border-transparent cursor-pointer">
-                    ▶️ YouTube VN
-                </button>
-            </div>
-
-            <!-- Local Files Pane -->
-            <div id="music-local-pane">
-                <input type="file" id="music-file-input" accept="audio/*" multiple class="hidden">
-                <button id="pick-music-btn" class="w-full py-1.5 mb-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/40 text-amber-200 text-[11px] font-medium transition cursor-pointer">
-                    + Chọn file nhạc (.mp3, .flac, .m4a...)
-                </button>
-                <div id="music-playlist" class="max-h-28 overflow-y-auto space-y-1 pr-1"></div>
-            </div>
-
-            <!-- YouTube URL / Playlist Pane -->
-            <div id="music-yt-pane" class="hidden space-y-2">
-                <div class="flex gap-1.5">
-                    <input id="yt-url-input" type="text" placeholder="Dán link Video hoặc Playlist YouTube..." class="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-white/15 text-[11px] text-slate-100 outline-none focus:border-rose-400">
-                    <button id="yt-load-btn" class="px-2.5 py-1.5 rounded-lg bg-rose-500/80 hover:bg-rose-500 text-white text-[11px] font-medium transition cursor-pointer">Phát</button>
-                </div>
-                <div id="yt-error" class="hidden text-[10px] text-rose-300">Link YouTube không hợp lệ.</div>
-                <div id="yt-player-frame" class="w-full rounded-lg overflow-hidden bg-black/50"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Top-Right Toggle & Studio Control Panel -->
-    <div class="fixed top-4 right-4 z-20 flex flex-col items-end">
-        <div class="flex items-center gap-2">
-            <button id="toggle-audio-btn" title="Bật/tắt âm thanh" class="px-3 py-2 rounded-xl bg-slate-950/70 hover:bg-slate-900/90 backdrop-blur-md border border-white/15 text-slate-100 text-xs font-medium shadow-lg flex items-center gap-1.5 transition cursor-pointer">
-                <span id="audio-icon">🔊</span>
-                <span class="hidden sm:inline" id="audio-label">Âm thanh</span>
+            <button id="toggle-music-btn" class="mt-1.5 sm:mt-2 px-2.5 py-1.5 sm:px-3 rounded-xl bg-slate-950/75 hover:bg-slate-900/90 backdrop-blur-md border border-amber-400/40 text-amber-200 text-xs font-medium shadow-lg flex items-center gap-1.5 transition cursor-pointer">
+                <span>🎧</span>
+                <span class="sm:hidden">Nhạc Chill</span>
+                <span class="hidden sm:inline">Trình phát nhạc Chill</span>
             </button>
-            <button id="toggle-hud-btn" class="px-3.5 py-2 rounded-xl bg-slate-950/70 hover:bg-slate-900/90 backdrop-blur-md border border-white/15 text-slate-100 text-xs font-medium shadow-lg flex items-center gap-2 transition cursor-pointer">
-                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
-                </svg>
-                <span>Tùy chỉnh cảnh</span>
-            </button>
+
+            <div id="music-panel" class="hud-panel fixed top-20 inset-x-3 sm:static sm:mt-2 sm:w-80 max-h-[72dvh] overflow-y-auto rounded-2xl bg-slate-950/88 sm:bg-slate-950/80 backdrop-blur-xl border border-white/15 p-3.5 text-slate-100 shadow-2xl">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <div id="music-title" class="text-xs font-semibold text-amber-200 truncate flex-1">Chưa có bài hát</div>
+                    <button id="close-music-btn" title="Đóng" class="sm:hidden w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs text-slate-300 cursor-pointer shrink-0">✕</button>
+                </div>
+
+                <!-- Seek Bar -->
+                <div class="flex items-center gap-2 mb-2.5">
+                    <span id="music-time-cur" class="text-[10px] font-mono text-slate-400 w-7">0:00</span>
+                    <input type="range" id="music-seek" min="0" max="100" step="0.5" value="0" class="flex-1">
+                    <span id="music-time-dur" class="text-[10px] font-mono text-slate-400 w-7 text-right">0:00</span>
+                </div>
+
+                <!-- Playback Controls -->
+                <div class="flex items-center justify-center gap-3 mb-3">
+                    <button id="music-shuffle-btn" title="Xáo trộn" class="w-8 h-8 rounded-full flex items-center justify-center text-sm text-slate-400 hover:text-white transition cursor-pointer">🔀</button>
+                    <button id="music-prev-btn" title="Bài trước" class="w-9 h-9 sm:w-8 sm:h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs transition cursor-pointer">⏮</button>
+                    <button id="music-play-btn" title="Phát / Tạm dừng" class="w-11 h-11 sm:w-10 sm:h-10 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold flex items-center justify-center text-sm shadow-lg transition cursor-pointer">▶</button>
+                    <button id="music-next-btn" title="Bài tiếp" class="w-9 h-9 sm:w-8 sm:h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs transition cursor-pointer">⏭</button>
+                    <button id="music-repeat-btn" title="Lặp lại 1 bài" class="w-8 h-8 rounded-full flex items-center justify-center text-sm text-slate-400 hover:text-white transition cursor-pointer">🔁</button>
+                </div>
+
+                <!-- Dual Volume Mixers -->
+                <div class="grid grid-cols-2 gap-2.5 mb-3 p-2 rounded-xl bg-white/5 border border-white/10">
+                    <div>
+                        <div class="text-[10px] text-slate-300 mb-1">🎵 Âm lượng nhạc</div>
+                        <input type="range" id="music-vol-slider" min="0" max="1" step="0.05" value="0.3" class="w-full">
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-slate-300 mb-1">🌧️ Mưa &amp; Suối</div>
+                        <input type="range" id="ambient-vol-slider" min="0" max="0.8" step="0.02" value="0.36" class="w-full">
+                    </div>
+                </div>
+
+                <!-- Source Tabs -->
+                <div class="flex gap-1.5 mb-2">
+                    <button id="tab-local-music" class="flex-1 py-1.5 rounded-lg text-[11px] font-medium bg-white/5 text-slate-300 border border-transparent cursor-pointer">
+                        📁 Nhạc máy tính
+                    </button>
+                    <button id="tab-yt-music" class="flex-1 py-1.5 rounded-lg text-[11px] font-medium bg-rose-500/30 text-rose-200 border border-rose-400/50 cursor-pointer">
+                        ▶️ YouTube VN
+                    </button>
+                </div>
+
+                <!-- Local Files Pane -->
+                <div id="music-local-pane" class="hidden">
+                    <input type="file" id="music-file-input" accept="audio/*" multiple class="hidden">
+                    <button id="pick-music-btn" class="w-full py-2 sm:py-1.5 mb-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/40 text-amber-200 text-[11px] font-medium transition cursor-pointer">
+                        + Chọn file nhạc (.mp3, .flac, .m4a...)
+                    </button>
+                    <div id="music-playlist" class="max-h-28 overflow-y-auto space-y-1 pr-1"></div>
+                </div>
+
+                <!-- YouTube URL / Playlist Pane -->
+                <div id="music-yt-pane" class="space-y-2">
+                    <div class="flex gap-1.5">
+                        <input id="yt-url-input" type="text" placeholder="Dán link Video hoặc Playlist YouTube..." class="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-white/15 text-[11px] text-slate-100 outline-none focus:border-rose-400">
+                        <button id="yt-load-btn" class="px-3 py-1.5 rounded-lg bg-rose-500/80 hover:bg-rose-500 text-white text-[11px] font-medium transition cursor-pointer">Phát</button>
+                    </div>
+                    <div id="yt-error" class="hidden text-[10px] text-rose-300">Link YouTube không hợp lệ.</div>
+                    <div id="yt-player-frame" class="w-full rounded-lg overflow-hidden bg-black/50"></div>
+                </div>
+            </div>
         </div>
 
-        <div id="hud-panel" class="hud-panel mt-2 w-72 sm:w-80 rounded-2xl bg-slate-950/75 backdrop-blur-xl border border-white/15 p-4 text-slate-100 shadow-2xl">
+        <!-- Top-Right Toggle & Studio Control Panel -->
+        <div class="pointer-events-auto flex flex-col items-end shrink-0">
+            <div class="flex items-center gap-1.5 sm:gap-2">
+                <button id="toggle-audio-btn" title="Bật/tắt âm thanh game" class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-slate-950/70 hover:bg-slate-900/90 backdrop-blur-md border border-white/15 text-slate-100 text-xs font-medium shadow-lg flex items-center gap-1.5 transition cursor-pointer">
+                    <span id="audio-icon">🔇</span>
+                    <span class="hidden sm:inline" id="audio-label">Đã tắt</span>
+                </button>
+                <button id="toggle-hud-btn" class="px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-slate-950/70 hover:bg-slate-900/90 backdrop-blur-md border border-white/15 text-slate-100 text-xs font-medium shadow-lg flex items-center gap-1.5 sm:gap-2 transition cursor-pointer">
+                    <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+                    </svg>
+                    <span class="sm:hidden">Cảnh</span>
+                    <span class="hidden sm:inline">Tùy chỉnh cảnh</span>
+                </button>
+            </div>
+
+            <div id="hud-panel" class="hud-panel fixed top-20 inset-x-3 sm:static sm:mt-2 sm:w-80 max-h-[72dvh] overflow-y-auto rounded-2xl bg-slate-950/88 sm:bg-slate-950/75 backdrop-blur-xl border border-white/15 p-3.5 sm:p-4 text-slate-100 shadow-2xl">
+                <div class="sm:hidden flex items-center justify-between mb-2.5 pb-2 border-b border-white/10">
+                    <span class="text-xs font-semibold text-amber-200">⚙️ Tùy chỉnh cảnh &amp; thời tiết</span>
+                    <button id="close-hud-btn" title="Đóng" class="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs text-slate-300 cursor-pointer">✕</button>
+                </div>
             <div class="mb-3.5 pb-3 border-b border-white/10">
                 <label class="flex items-center justify-between p-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/35 cursor-pointer transition">
                     <div>
@@ -194,22 +203,22 @@
     </div>
 
     <!-- RPG Pixel Art Dialogue Box & Interaction Prompt -->
-    <div id="interact-hint" class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-xl bg-slate-950/85 border border-amber-400/70 text-amber-200 text-xs font-medium shadow-xl backdrop-blur-md animate-bounce pointer-events-auto cursor-pointer">
+    <div id="interact-hint" class="hidden fixed bottom-28 sm:bottom-20 left-1/2 -translate-x-1/2 z-20 max-w-[90vw] text-center px-3.5 py-2 sm:py-1.5 rounded-xl bg-slate-950/85 border border-amber-400/70 text-amber-200 text-xs font-medium shadow-xl backdrop-blur-md animate-bounce pointer-events-auto cursor-pointer">
         Nhấn <span class="pixel-font text-amber-400 font-bold">[E]</span> hoặc chạm để trò chuyện / tương tác
     </div>
 
-    <div id="dialogue-box" class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-30 w-[92vw] max-w-xl rounded-2xl bg-slate-950/92 backdrop-blur-xl border-2 border-amber-400/75 p-4 text-slate-100 shadow-[0_0_30px_rgba(251,191,36,0.28)]">
-        <div class="flex items-start gap-3.5">
-            <canvas id="dialogue-portrait" width="48" height="48" class="w-12 h-12 rounded-xl bg-slate-900 border border-amber-400/40 shrink-0" style="image-rendering: pixelated;"></canvas>
+    <div id="dialogue-box" class="hidden fixed bottom-28 sm:bottom-20 left-1/2 -translate-x-1/2 z-30 w-[94vw] sm:w-[92vw] max-w-xl rounded-2xl bg-slate-950/92 backdrop-blur-xl border-2 border-amber-400/75 p-3 sm:p-4 text-slate-100 shadow-[0_0_30px_rgba(251,191,36,0.28)]">
+        <div class="flex items-start gap-3 sm:gap-3.5">
+            <canvas id="dialogue-portrait" width="48" height="48" class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-slate-900 border border-amber-400/40 shrink-0" style="image-rendering: pixelated;"></canvas>
             <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between gap-2 mb-1">
-                    <span id="dialogue-speaker" class="pixel-font text-xs sm:text-sm text-amber-300 font-bold tracking-wide">Dân Làng</span>
-                    <span id="dialogue-role" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/30">Thương nhân</span>
+                    <span id="dialogue-speaker" class="pixel-font text-xs sm:text-sm text-amber-300 font-bold tracking-wide truncate">Dân Làng</span>
+                    <span id="dialogue-role" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/30 shrink-0">Thương nhân</span>
                 </div>
-                <p id="dialogue-text" class="text-xs sm:text-sm text-slate-100 leading-relaxed min-h-[2.75rem]"></p>
-                <div class="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-                    <span>Nhấn <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-amber-300 font-mono">E</kbd> hoặc <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-amber-300 font-mono">Space</kbd> để tiếp tục</span>
-                    <button id="dialogue-next-btn" class="px-3 py-1 rounded-lg bg-amber-500/30 hover:bg-amber-500/45 text-amber-200 border border-amber-400/50 font-medium transition cursor-pointer">
+                <p id="dialogue-text" class="text-xs sm:text-sm text-slate-100 leading-relaxed min-h-[2.5rem] sm:min-h-[2.75rem]"></p>
+                <div class="mt-2 flex items-center justify-end sm:justify-between text-[11px] text-slate-400">
+                    <span class="hidden sm:inline">Nhấn <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-amber-300 font-mono">E</kbd> hoặc <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-amber-300 font-mono">Space</kbd> để tiếp tục</span>
+                    <button id="dialogue-next-btn" class="px-3.5 py-1.5 sm:px-3 sm:py-1 rounded-lg bg-amber-500/30 hover:bg-amber-500/45 text-amber-200 border border-amber-400/50 font-medium transition cursor-pointer">
                         Tiếp tục ▸
                     </button>
                 </div>
@@ -221,33 +230,35 @@
     <div id="scene-fade" class="fixed inset-0 z-40 bg-slate-950 pointer-events-none opacity-0 transition-opacity duration-300"></div>
 
     <!-- Bottom-Left Virtual Joystick -->
-    <div id="joystick-zone" class="fixed bottom-5 left-5 z-20 w-28 h-28 rounded-full bg-slate-950/45 backdrop-blur-md border border-white/20 flex items-center justify-center sm:opacity-70 hover:opacity-100 transition">
-        <div class="w-12 h-12 rounded-full border border-white/15 pointer-events-none"></div>
-        <div id="joystick-knob" class="absolute w-11 h-11 rounded-full bg-amber-400/80 border-2 border-amber-100 shadow-lg pointer-events-none transition-transform duration-75"></div>
+    <div id="joystick-zone" class="fixed bottom-4 left-3 sm:bottom-5 sm:left-5 z-20 w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-slate-950/45 backdrop-blur-md border border-white/20 flex items-center justify-center sm:opacity-70 hover:opacity-100 transition">
+        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-white/15 pointer-events-none"></div>
+        <div id="joystick-knob" class="absolute w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-amber-400/80 border-2 border-amber-100 shadow-lg pointer-events-none transition-transform duration-75"></div>
     </div>
 
     <!-- Bottom-Center Camera Mode Switcher -->
-    <div class="fixed bottom-5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-950/70 backdrop-blur-md border border-white/15 shadow-xl">
-        <button id="cam-follow-btn" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-amber-500/35 border border-amber-400/70 text-amber-200 transition cursor-pointer">
-            Camera theo nhân vật
+    <div class="fixed bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 p-1 sm:p-1.5 rounded-2xl bg-slate-950/70 backdrop-blur-md border border-white/15 shadow-xl whitespace-nowrap pointer-events-auto">
+        <button id="cam-follow-btn" class="px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-medium bg-amber-500/35 border border-amber-400/70 text-amber-200 transition cursor-pointer">
+            <span class="sm:hidden">Theo</span>
+            <span class="hidden sm:inline">Camera theo nhân vật</span>
         </button>
-        <button id="cam-free-btn" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-transparent hover:bg-white/10 border border-transparent text-slate-300 transition cursor-pointer">
-            Camera tự do
+        <button id="cam-free-btn" class="px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-medium bg-transparent hover:bg-white/10 border border-transparent text-slate-300 transition cursor-pointer">
+            <span class="sm:hidden">Tự do</span>
+            <span class="hidden sm:inline">Camera tự do</span>
         </button>
     </div>
 
     <!-- Bottom-Right Minimap & Quest Tracker -->
-    <div class="fixed bottom-4 right-4 z-20 flex flex-col items-end gap-2 pointer-events-none">
-        <div class="hidden sm:flex flex-col items-end gap-1.5 pointer-events-auto">
-            <button id="lantern-badge" class="hidden px-2.5 py-1 rounded-xl bg-amber-500/25 hover:bg-amber-500/40 border border-amber-400/60 text-amber-200 text-[11px] font-medium shadow-lg backdrop-blur-md transition cursor-pointer">
-                🏮 Đèn lồng <kbd class="px-1 rounded bg-black/30 font-mono">[F]</kbd>
+    <div class="fixed bottom-4 right-3 sm:right-4 z-20 flex flex-col items-end gap-1.5 sm:gap-2 pointer-events-none">
+        <div class="flex flex-col items-end gap-1 sm:gap-1.5 pointer-events-auto">
+            <button id="lantern-badge" class="hidden px-2 py-1 sm:px-2.5 rounded-xl bg-amber-500/25 hover:bg-amber-500/40 border border-amber-400/60 text-amber-200 text-[10px] sm:text-[11px] font-medium shadow-lg backdrop-blur-md transition cursor-pointer">
+                🏮 Đèn lồng <kbd class="hidden sm:inline px-1 rounded bg-black/30 font-mono">[F]</kbd>
             </button>
-            <div class="max-w-[220px] rounded-2xl bg-slate-950/75 backdrop-blur-md border border-white/15 px-3 py-2 text-right shadow-xl">
-                <div id="quest-title" class="pixel-font text-[11px] text-amber-300 font-bold">Nhiệm vụ mới (!)</div>
-                <div id="quest-desc" class="text-[11px] text-slate-300 leading-snug mt-0.5">Gặp Lão Ngư Ông Barnaby bên cầu trung tâm.</div>
+            <div class="max-w-[140px] sm:max-w-[220px] rounded-xl sm:rounded-2xl bg-slate-950/75 backdrop-blur-md border border-white/15 px-2.5 py-1.5 sm:px-3 sm:py-2 text-right shadow-xl">
+                <div id="quest-title" class="pixel-font text-[10px] sm:text-[11px] text-amber-300 font-bold truncate">Nhiệm vụ mới (!)</div>
+                <div id="quest-desc" class="text-[10px] sm:text-[11px] text-slate-300 leading-snug mt-0.5 line-clamp-2 sm:line-clamp-none">Gặp Lão Ngư Ông Barnaby bên cầu trung tâm.</div>
             </div>
         </div>
-        <div class="relative w-[108px] h-[108px] rounded-full bg-slate-950/85 border-2 border-amber-400/65 shadow-[0_0_20px_rgba(0,0,0,0.65)] p-1 pointer-events-auto">
+        <div class="relative w-[84px] h-[84px] sm:w-[108px] sm:h-[108px] rounded-full bg-slate-950/85 border-2 border-amber-400/65 shadow-[0_0_20px_rgba(0,0,0,0.65)] p-1 pointer-events-auto">
             <canvas id="minimap-canvas" width="100" height="100" class="w-full h-full rounded-full"></canvas>
             <span class="absolute -top-1 left-1/2 -translate-x-1/2 px-1.5 rounded bg-slate-900 text-[9px] text-amber-300 font-bold border border-amber-400/40">N</span>
         </div>

@@ -8,7 +8,7 @@ export class AudioEngine {
     private windGain: GainNode | null = null;
     private noiseBuffer: AudioBuffer | null = null;
 
-    public muted = false;
+    public muted = true;
     public ambientVolume = 0.36;
     private initialized = false;
     private lastBlipTime = 0;

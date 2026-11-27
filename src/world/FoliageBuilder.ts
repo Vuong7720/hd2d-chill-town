@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { AssetLoader } from '../core/AssetLoader';
-import { generateBushSpriteTexture, generateFoliageTexture } from '../graphics/PixelTextureGen';
+import { loadEdgeKeyedTexture } from '../graphics/SpriteKeying';
 import { WorldContext } from './WorldContext';
 import townMap from '../data/town_map.json';
 
@@ -22,23 +22,23 @@ export async function buildFoliage(
     assets: AssetLoader
 ): Promise<FoliageRefs> {
     const oakMat = new THREE.MeshStandardMaterial({
-        map: generateFoliageTexture(false),
+        map: loadEdgeKeyedTexture('./assets/canopy_oak.jpg', 26),
         transparent: true,
-        alphaTest: 0.4,
+        alphaTest: 0.45,
         roughness: 0.85,
         side: THREE.DoubleSide,
     });
     const sakuraMat = new THREE.MeshStandardMaterial({
-        map: generateFoliageTexture(true),
+        map: loadEdgeKeyedTexture('./assets/canopy_sakura.jpg', 26),
         transparent: true,
-        alphaTest: 0.4,
+        alphaTest: 0.45,
         roughness: 0.85,
         side: THREE.DoubleSide,
     });
 
     const foliageSprites: SwaySprite[] = [];
 
-    // Lush Pixel Art Trees (matching HD-2D aesthetic)
+    // Stationary 3D Wooden Trunks + Lush Swaying HD-2D Leaf/Blossom Canopies
     townMap.trees.forEach((t) => {
         const tree = new THREE.Group();
         tree.position.set(t.x, t.y ?? 0.2, t.z);
@@ -55,16 +55,17 @@ export async function buildFoliage(
 
         const fMat = t.type === 'sakura' ? sakuraMat : oakMat;
         const clusters: [number, number, number, number][] = [
-            [0, trunkH + 0.9 * t.scale, 0, 2.7 * t.scale],
-            [-0.85 * t.scale, trunkH + 0.45 * t.scale, 0.35 * t.scale, 2.1 * t.scale],
-            [0.85 * t.scale, trunkH + 0.5 * t.scale, 0.3 * t.scale, 2.15 * t.scale],
-            [0, trunkH + 0.55 * t.scale, -0.75 * t.scale, 2.2 * t.scale],
-            [0, trunkH + 1.55 * t.scale, 0.1 * t.scale, 1.95 * t.scale],
+            [0, trunkH + 0.9 * t.scale, 0, 2.75 * t.scale],
+            [-0.85 * t.scale, trunkH + 0.45 * t.scale, 0.35 * t.scale, 2.15 * t.scale],
+            [0.85 * t.scale, trunkH + 0.5 * t.scale, 0.3 * t.scale, 2.2 * t.scale],
+            [0, trunkH + 0.55 * t.scale, -0.75 * t.scale, 2.25 * t.scale],
+            [0, trunkH + 1.55 * t.scale, 0.1 * t.scale, 2.0 * t.scale],
         ];
 
         clusters.forEach(([cx, cy, cz, size], idx) => {
             const card = new THREE.Mesh(new THREE.PlaneGeometry(size, size), fMat);
             card.position.set(cx, cy, cz);
+            if (idx % 2 === 1) card.scale.x = -1;
             card.castShadow = true;
             tree.add(card);
             foliageSprites.push({ mesh: card, baseX: cx, phase: t.x + t.z + idx });
@@ -91,21 +92,32 @@ export async function buildFoliage(
         })
     );
 
-    // Pixel Art Flower Bushes
-    const greenBushTex = generateBushSpriteTexture(false);
-    const flowerBushTex = generateBushSpriteTexture(true);
+    // Detailed HD-2D Flowering Shrubs & Bushes
+    const bushTex = loadEdgeKeyedTexture('./assets/bush_flower.jpg', 24);
+    const flowerBushMat = new THREE.MeshStandardMaterial({
+        map: bushTex,
+        transparent: true,
+        alphaTest: 0.45,
+        roughness: 0.88,
+        side: THREE.DoubleSide,
+    });
+    const greenBushMat = new THREE.MeshStandardMaterial({
+        map: bushTex,
+        color: 0xa7f3d0,
+        transparent: true,
+        alphaTest: 0.45,
+        roughness: 0.9,
+        side: THREE.DoubleSide,
+    });
     const swayingBushes: SwaySprite[] = [];
 
     townMap.bushes.forEach((b, i) => {
-        const mat = new THREE.MeshStandardMaterial({
-            map: b.flowers ? flowerBushTex : greenBushTex,
-            transparent: true,
-            alphaTest: 0.4,
-            roughness: 0.9,
-            side: THREE.DoubleSide,
-        });
-        const bush = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.4), mat);
-        bush.position.set(b.x, (b.y ?? 0.2) + 0.68, b.z);
+        const mat = b.flowers ? flowerBushMat : greenBushMat;
+        const bushGeo = new THREE.PlaneGeometry(1.75, 1.65);
+        bushGeo.translate(0, 0.52, 0);
+        const bush = new THREE.Mesh(bushGeo, mat);
+        bush.position.set(b.x, b.y ?? 0.2, b.z);
+        if (i % 2 === 1) bush.scale.x = -1;
         bush.castShadow = true;
         scene.add(bush);
         swayingBushes.push({ mesh: bush, baseX: b.x, phase: i * 1.1 });

@@ -97,7 +97,25 @@ export class WeatherSystem {
     public onThunder?: () => void;
     public onFirework?: () => void;
 
+    private skyGroup = new THREE.Group();
+    private sunMesh!: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+    private sunRays!: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+    private moonMesh!: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+    private moonHalo!: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+    private starField!: THREE.Points;
+    private starMat!: THREE.PointsMaterial;
+    private shootingStar!: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>;
+    private shootingStarState = { active: false, timer: 3.5, life: 0, pos: new THREE.Vector3(), vel: new THREE.Vector3() };
+    private clouds: {
+        group: THREE.Group;
+        mat: THREE.MeshBasicMaterial;
+        baseX: number;
+        speed: number;
+        phase: number;
+    }[] = [];
+
     constructor(private scene: THREE.Scene) {
+        this.initSkyScenery();
         this.initFestivalGarlands();
         const fw = this.initFireworks();
         this.fwGeo = fw.geo;
@@ -118,6 +136,271 @@ export class WeatherSystem {
         this.rainSystem = rain.lines;
 
         this.initMist();
+    }
+
+    private createRadialGlowMaterial(colorHex: number, power = 2.4): THREE.ShaderMaterial {
+        return new THREE.ShaderMaterial({
+            uniforms: {
+                uColor: { value: new THREE.Color(colorHex) },
+                uOpacity: { value: 1.0 },
+                uPower: { value: power },
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform vec3 uColor;
+                uniform float uOpacity;
+                uniform float uPower;
+                varying vec2 vUv;
+                void main() {
+                    float d = length(vUv - 0.5) * 2.0;
+                    float alpha = pow(clamp(1.0 - d, 0.0, 1.0), uPower) * uOpacity;
+                    gl_FragColor = vec4(uColor, alpha);
+                }
+            `,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            fog: false,
+            depthWrite: false,
+        });
+    }
+
+    private initSkyScenery(): void {
+        // 1. Twinkling Starfield
+        const starCount = 320;
+        const starPositions = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount; i++) {
+            starPositions[i * 3] = (Math.random() - 0.5) * 145;
+            starPositions[i * 3 + 1] = 11 + Math.random() * 28;
+            starPositions[i * 3 + 2] = -42 - Math.random() * 28;
+        }
+        const starGeo = new THREE.BufferGeometry();
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        this.starMat = new THREE.PointsMaterial({
+            color: 0xf8fafc,
+            size: 0.34,
+            transparent: true,
+            opacity: 0,
+            fog: false,
+            depthWrite: false,
+        });
+        this.starField = new THREE.Points(starGeo, this.starMat);
+        this.skyGroup.add(this.starField);
+
+        // Shooting Star (Sao băng)
+        const ssGeo = new THREE.BufferGeometry();
+        ssGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+        const ssMat = new THREE.LineBasicMaterial({
+            color: 0xe0f2fe,
+            transparent: true,
+            opacity: 0,
+            fog: false,
+            depthWrite: false,
+        });
+        this.shootingStar = new THREE.Line(ssGeo, ssMat);
+        this.shootingStar.visible = false;
+        this.skyGroup.add(this.shootingStar);
+
+        // 2. High-res Luminous Moon + Seamless Atmospheric Moonlight Halo
+        const moonCanvas = document.createElement('canvas');
+        moonCanvas.width = 256;
+        moonCanvas.height = 256;
+        const mCtx = moonCanvas.getContext('2d')!;
+        mCtx.clearRect(0, 0, 256, 256);
+
+        // Soft outer glow
+        const outerGrad = mCtx.createRadialGradient(128, 128, 60, 128, 128, 122);
+        outerGrad.addColorStop(0, 'rgba(254, 249, 195, 0.98)');
+        outerGrad.addColorStop(0.55, 'rgba(224, 242, 254, 0.45)');
+        outerGrad.addColorStop(1, 'rgba(186, 230, 253, 0)');
+        mCtx.fillStyle = outerGrad;
+        mCtx.beginPath();
+        mCtx.arc(128, 128, 122, 0, Math.PI * 2);
+        mCtx.fill();
+
+        // Moon body with subtle 3D spherical shading
+        const bodyGrad = mCtx.createRadialGradient(108, 108, 12, 128, 128, 76);
+        bodyGrad.addColorStop(0, '#ffffff');
+        bodyGrad.addColorStop(0.65, '#fef9c3');
+        bodyGrad.addColorStop(1, '#cbd5e1');
+        mCtx.fillStyle = bodyGrad;
+        mCtx.beginPath();
+        mCtx.arc(128, 128, 76, 0, Math.PI * 2);
+        mCtx.fill();
+
+        // Subtle craters
+        mCtx.fillStyle = 'rgba(148, 163, 184, 0.28)';
+        [
+            [102, 104, 14],
+            [152, 92, 10],
+            [144, 152, 18],
+            [92, 148, 9],
+            [122, 128, 7],
+        ].forEach(([cx, cy, cr]) => {
+            mCtx.beginPath();
+            mCtx.arc(cx, cy, cr, 0, Math.PI * 2);
+            mCtx.fill();
+        });
+
+        const moonTex = new THREE.CanvasTexture(moonCanvas);
+        this.moonMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(8.5, 8.5),
+            new THREE.MeshBasicMaterial({
+                map: moonTex,
+                transparent: true,
+                opacity: 0,
+                fog: false,
+                depthWrite: false,
+            })
+        );
+        this.moonMesh.position.set(-14, 21, -48);
+        this.skyGroup.add(this.moonMesh);
+
+        this.moonHalo = new THREE.Mesh(
+            new THREE.PlaneGeometry(24, 24),
+            this.createRadialGlowMaterial(0x93c5fd, 2.2)
+        );
+        this.moonHalo.position.set(-14, 21, -48.5);
+        this.skyGroup.add(this.moonHalo);
+
+        // 3. Sun with White-Hot Core + Animated Corona Rays
+        this.sunMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(16, 16),
+            new THREE.ShaderMaterial({
+                uniforms: {
+                    uColor: { value: new THREE.Color(0xfef08a) },
+                    uOpacity: { value: 1.0 },
+                },
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform vec3 uColor;
+                    uniform float uOpacity;
+                    varying vec2 vUv;
+                    void main() {
+                        float d = length(vUv - 0.5) * 2.0;
+                        float core = smoothstep(0.32, 0.18, d);
+                        float glow = pow(clamp(1.0 - d, 0.0, 1.0), 2.6);
+                        vec3 col = mix(uColor, vec3(1.0, 0.99, 0.92), core);
+                        float alpha = clamp(core + glow * 0.85, 0.0, 1.0) * uOpacity;
+                        gl_FragColor = vec4(col, alpha);
+                    }
+                `,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                fog: false,
+                depthWrite: false,
+            })
+        );
+        this.sunMesh.position.set(16, 15, -50);
+        this.skyGroup.add(this.sunMesh);
+
+        this.sunRays = new THREE.Mesh(
+            new THREE.PlaneGeometry(26, 26),
+            new THREE.ShaderMaterial({
+                uniforms: {
+                    uColor: { value: new THREE.Color(0xfdba74) },
+                    uOpacity: { value: 0.45 },
+                    uTime: { value: 0 },
+                },
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform vec3 uColor;
+                    uniform float uOpacity;
+                    uniform float uTime;
+                    varying vec2 vUv;
+                    void main() {
+                        vec2 p = vUv - 0.5;
+                        float d = length(p) * 2.0;
+                        float ang = atan(p.y, p.x);
+                        float rays = 0.5 + 0.5 * sin(ang * 10.0 + uTime * 0.4);
+                        float rays2 = 0.5 + 0.5 * cos(ang * 6.0 - uTime * 0.25);
+                        float beam = pow(rays * 0.6 + rays2 * 0.4, 2.0);
+                        float radial = pow(clamp(1.0 - d, 0.0, 1.0), 2.0);
+                        float alpha = radial * (0.25 + 0.75 * beam) * uOpacity;
+                        gl_FragColor = vec4(uColor, alpha);
+                    }
+                `,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                fog: false,
+                depthWrite: false,
+            })
+        );
+        this.sunRays.position.set(16, 15, -50.5);
+        this.skyGroup.add(this.sunRays);
+
+        // 4. Soft Fluffy Stylized Clouds
+        const puffCanvas = document.createElement('canvas');
+        puffCanvas.width = 128;
+        puffCanvas.height = 128;
+        const pCtx = puffCanvas.getContext('2d')!;
+        const pGrad = pCtx.createRadialGradient(64, 64, 14, 64, 64, 62);
+        pGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+        pGrad.addColorStop(0.6, 'rgba(255, 255, 255, 0.55)');
+        pGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        pCtx.fillStyle = pGrad;
+        pCtx.fillRect(0, 0, 128, 128);
+        const puffTex = new THREE.CanvasTexture(puffCanvas);
+
+        const cloudConfigs = [
+            { x: -34, y: 18, z: -42, scale: 1.4, speed: 0.45 },
+            { x: -12, y: 20.5, z: -46, scale: 1.65, speed: 0.35 },
+            { x: 14, y: 17.5, z: -40, scale: 1.35, speed: 0.5 },
+            { x: 36, y: 19.5, z: -45, scale: 1.5, speed: 0.4 },
+            { x: -24, y: 15.5, z: -36, scale: 1.15, speed: 0.55 },
+            { x: 24, y: 16.0, z: -37, scale: 1.2, speed: 0.48 },
+        ];
+        cloudConfigs.forEach((cfg, idx) => {
+            const cGroup = new THREE.Group();
+            const cMat = new THREE.MeshBasicMaterial({
+                map: puffTex,
+                color: 0xf8fafc,
+                transparent: true,
+                opacity: 0.72,
+                fog: false,
+                depthWrite: false,
+            });
+            const puffs: [number, number, number, number][] = [
+                [0, 0, 0, 5.2],
+                [-2.2, -0.35, 0.1, 3.8],
+                [2.2, -0.3, 0.1, 4.0],
+                [0.7, 0.85, -0.1, 3.4],
+            ];
+            puffs.forEach(([px, py, pz, pr]) => {
+                const puff = new THREE.Mesh(new THREE.PlaneGeometry(pr, pr), cMat);
+                puff.position.set(px, py, pz);
+                cGroup.add(puff);
+            });
+            cGroup.scale.setScalar(cfg.scale);
+            cGroup.position.set(cfg.x, cfg.y, cfg.z);
+            this.skyGroup.add(cGroup);
+            this.clouds.push({
+                group: cGroup,
+                mat: cMat,
+                baseX: cfg.x,
+                speed: cfg.speed,
+                phase: idx * 1.4,
+            });
+        });
+
+        this.scene.add(this.skyGroup);
     }
 
     private initFestivalGarlands(): void {
@@ -455,6 +738,42 @@ export class WeatherSystem {
             this.fireworkSystem.visible = false;
             this.fwState.active = false;
         }
+
+        // Update Sky Scenery (Moon, Stars, Sun, Clouds)
+        const nightFactor = THREE.MathUtils.clamp(
+            1.0 - THREE.MathUtils.lerp(mA.sunIntensity, mB.sunIntensity, tMood) / 1.8,
+            0,
+            1
+        );
+        const clearFactor = 1.0 - THREE.MathUtils.clamp(rainOpacity / 0.58, 0, 1) * 0.75;
+
+        this.starMat.opacity = THREE.MathUtils.clamp((nightFactor - 0.25) * 1.35, 0, 0.92) * clearFactor;
+        this.starField.visible = this.starMat.opacity > 0.02;
+
+        const moonOp = THREE.MathUtils.clamp((nightFactor - 0.2) * 1.3, 0, 1) * clearFactor;
+        this.moonMesh.material.opacity = moonOp;
+        this.moonHalo.material.uniforms.uOpacity.value = moonOp * 0.34;
+        this.moonMesh.visible = moonOp > 0.02;
+        this.moonHalo.visible = moonOp > 0.02;
+
+        const sunOp = THREE.MathUtils.clamp(1.0 - nightFactor * 1.4, 0, 1) * clearFactor;
+        this.sunMesh.material.uniforms.uOpacity.value = sunOp * 0.95;
+        this.sunRays.material.uniforms.uOpacity.value = sunOp * 0.42;
+        this.sunMesh.visible = sunOp > 0.02;
+        this.sunRays.visible = sunOp > 0.02;
+        this.sunMesh.material.uniforms.uColor.value.setHex(mA.sunColor).lerp(this.tmpColB.setHex(mB.sunColor), tMood);
+
+        const sunX = THREE.MathUtils.lerp(mA.sunPos[0], mB.sunPos[0], tMood) * 1.1;
+        const sunY = Math.max(10, THREE.MathUtils.lerp(mA.sunPos[1], mB.sunPos[1], tMood) * 0.85);
+        this.sunMesh.position.set(sunX, sunY, -50);
+        this.sunRays.position.set(sunX, sunY, -50.5);
+
+        this.tmpColA.setHex(mA.skyColor).lerp(this.tmpColB.setHex(mB.skyColor), tMood);
+        this.tmpColA.lerp(this.tmpColC.setHex(0xffffff), 0.35 * (1 - nightFactor * 0.7));
+        this.clouds.forEach((c) => {
+            c.mat.color.copy(this.tmpColA);
+            c.mat.opacity = THREE.MathUtils.lerp(0.68, 0.28, nightFactor) * (1 - skyDarken * 0.35);
+        });
     }
 
     public update(
@@ -604,7 +923,7 @@ export class WeatherSystem {
                     drop.x = (Math.random() - 0.5) * 38 - windSlantX * 0.4;
                 }
                 rAttr.setXYZ(i * 2, drop.x, drop.y, drop.z);
-                rAttr.setXYZ(i * 2 + 1, drop.x - windSlantX * 0.035, drop.y - 0.52, drop.z);
+                rAttr.setXYZ(i * 2 + 1, drop.x + windSlantX * 0.035, drop.y - 0.52, drop.z);
             }
             rAttr.needsUpdate = true;
 
@@ -632,5 +951,52 @@ export class WeatherSystem {
                     Math.sin(elapsed * m.speed * (0.5 + this.windSpeed * 0.5) + m.phase) * 3.8;
             }
         });
+
+        this.clouds.forEach((c) => {
+            c.group.position.x += c.speed * (0.4 + this.windSpeed * 0.8) * dt;
+            if (c.group.position.x > 54) {
+                c.group.position.x = -54;
+            }
+        });
+
+        // Animate Sun Corona Rays & Moon Halo Pulse
+        this.sunRays.material.uniforms.uTime.value = elapsed;
+        if (this.moonHalo.visible) {
+            this.moonHalo.scale.setScalar(1.0 + Math.sin(elapsed * 1.2) * 0.04);
+        }
+
+        // Occasional Shooting Star at Night
+        if (this.starField.visible) {
+            this.shootingStarState.timer -= dt;
+            if (!this.shootingStarState.active && this.shootingStarState.timer <= 0) {
+                this.shootingStarState.active = true;
+                this.shootingStarState.life = 0.7;
+                this.shootingStarState.pos.set((Math.random() - 0.3) * 40, 26 + Math.random() * 8, -46);
+                this.shootingStarState.vel.set(-22 - Math.random() * 10, -10 - Math.random() * 6, 0);
+                this.shootingStar.visible = true;
+                this.shootingStarState.timer = 4.5 + Math.random() * 6.0;
+            }
+            if (this.shootingStarState.active) {
+                this.shootingStarState.life -= dt;
+                this.shootingStarState.pos.addScaledVector(this.shootingStarState.vel, dt);
+                const sAttr = this.shootingStar.geometry.attributes.position as THREE.BufferAttribute;
+                sAttr.setXYZ(0, this.shootingStarState.pos.x, this.shootingStarState.pos.y, this.shootingStarState.pos.z);
+                sAttr.setXYZ(
+                    1,
+                    this.shootingStarState.pos.x - this.shootingStarState.vel.x * 0.14,
+                    this.shootingStarState.pos.y - this.shootingStarState.vel.y * 0.14,
+                    this.shootingStarState.pos.z
+                );
+                sAttr.needsUpdate = true;
+                this.shootingStar.material.opacity = Math.max(0, this.shootingStarState.life * 1.4);
+                if (this.shootingStarState.life <= 0) {
+                    this.shootingStarState.active = false;
+                    this.shootingStar.visible = false;
+                }
+            }
+        } else {
+            this.shootingStar.visible = false;
+            this.shootingStarState.active = false;
+        }
     }
 }

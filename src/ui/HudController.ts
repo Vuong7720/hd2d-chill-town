@@ -20,7 +20,21 @@ export class HudController {
     constructor(callbacks: HudCallbacks) {
         const toggleHudBtn = document.getElementById('toggle-hud-btn')!;
         const hudPanel = document.getElementById('hud-panel')!;
-        toggleHudBtn.addEventListener('click', () => hudPanel.classList.toggle('hud-collapsed'));
+        const isMobile =
+            window.innerWidth < 768 || window.matchMedia('(pointer: coarse)').matches;
+        if (isMobile) {
+            hudPanel.classList.add('hud-collapsed');
+        }
+        toggleHudBtn.addEventListener('click', () => {
+            const willOpen = hudPanel.classList.contains('hud-collapsed');
+            if (willOpen && (window.innerWidth < 768 || window.matchMedia('(pointer: coarse)').matches)) {
+                document.getElementById('music-panel')?.classList.add('hud-collapsed');
+            }
+            hudPanel.classList.toggle('hud-collapsed');
+        });
+        document.getElementById('close-hud-btn')?.addEventListener('click', () => {
+            hudPanel.classList.add('hud-collapsed');
+        });
 
         this.autoCycleCheckbox.addEventListener('change', () => {
             callbacks.onAutoCycleChange(this.autoCycleCheckbox.checked);
@@ -96,14 +110,14 @@ export class HudController {
     public setCameraButtons(mode: CameraMode): void {
         if (mode === 'follow') {
             this.camFollowBtn.className =
-                'px-3 py-1.5 rounded-xl text-xs font-medium bg-amber-500/35 border border-amber-400/70 text-amber-200 transition cursor-pointer';
+                'px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-medium bg-amber-500/35 border border-amber-400/70 text-amber-200 transition cursor-pointer';
             this.camFreeBtn.className =
-                'px-3 py-1.5 rounded-xl text-xs font-medium bg-transparent hover:bg-white/10 border border-transparent text-slate-300 transition cursor-pointer';
+                'px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-medium bg-transparent hover:bg-white/10 border border-transparent text-slate-300 transition cursor-pointer';
         } else {
             this.camFreeBtn.className =
-                'px-3 py-1.5 rounded-xl text-xs font-medium bg-amber-500/35 border border-amber-400/70 text-amber-200 transition cursor-pointer';
+                'px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-medium bg-amber-500/35 border border-amber-400/70 text-amber-200 transition cursor-pointer';
             this.camFollowBtn.className =
-                'px-3 py-1.5 rounded-xl text-xs font-medium bg-transparent hover:bg-white/10 border border-transparent text-slate-300 transition cursor-pointer';
+                'px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-medium bg-transparent hover:bg-white/10 border border-transparent text-slate-300 transition cursor-pointer';
         }
     }
 }

@@ -21,6 +21,8 @@ export async function buildArchitecture(
     const wallPbr = generateTimberWallPBR();
     const roofRedPbr = generateRoofPBR('#b94a3e', '#d96b5f', '#7c2d25');
     const roofSlatePbr = generateRoofPBR('#3b526b', '#587594', '#233242');
+    const roofMossPbr = generateRoofPBR('#3f6212', '#65a30d', '#1a2e05');
+    const roofOchrePbr = generateRoofPBR('#b45309', '#d97706', '#78350f');
 
     const wallMat = new THREE.MeshStandardMaterial({
         map: wallPbr.map,
@@ -29,20 +31,28 @@ export async function buildArchitecture(
         roughnessMap: wallPbr.roughnessMap,
         roughness: 0.85,
     });
-    const roofRedMat = new THREE.MeshStandardMaterial({
-        map: roofRedPbr.map,
-        normalMap: roofRedPbr.normalMap,
-        normalScale: new THREE.Vector2(0.5, 0.5),
-        roughnessMap: roofRedPbr.roughnessMap,
-        roughness: 0.78,
-    });
-    const roofSlateMat = new THREE.MeshStandardMaterial({
-        map: roofSlatePbr.map,
-        normalMap: roofSlatePbr.normalMap,
-        normalScale: new THREE.Vector2(0.5, 0.5),
-        roughnessMap: roofSlatePbr.roughnessMap,
-        roughness: 0.78,
-    });
+    const wallWarmMat = wallMat.clone();
+    wallWarmMat.color.setHex(0xfde68a);
+    const wallSageMat = wallMat.clone();
+    wallSageMat.color.setHex(0xd9f99d);
+    const wallRoseMat = wallMat.clone();
+    wallRoseMat.color.setHex(0xfecdd3);
+
+    const makeRoofMat = (pbr: ReturnType<typeof generateRoofPBR>) =>
+        new THREE.MeshStandardMaterial({
+            map: pbr.map,
+            normalMap: pbr.normalMap,
+            normalScale: new THREE.Vector2(0.5, 0.5),
+            roughnessMap: pbr.roughnessMap,
+            roughness: 0.78,
+        });
+
+    const roofMats: Record<string, THREE.MeshStandardMaterial> = {
+        red: makeRoofMat(roofRedPbr),
+        slate: makeRoofMat(roofSlatePbr),
+        moss: makeRoofMat(roofMossPbr),
+        ochre: makeRoofMat(roofOchrePbr),
+    };
 
     const windowGlassMat = new THREE.MeshStandardMaterial({
         color: 0xfef08a,
@@ -51,8 +61,22 @@ export async function buildArchitecture(
         roughness: 0.2,
     });
 
-    townMap.houses.forEach((h) => {
-        const roofMat = h.roof === 'red' ? roofRedMat : roofSlateMat;
+    type HouseEntry = (typeof townMap.houses)[number] & {
+        kind?: string;
+        wallTint?: string;
+        awningColor?: string;
+    };
+
+    (townMap.houses as HouseEntry[]).forEach((h) => {
+        const roofMat = roofMats[h.roof] ?? roofMats.red;
+        const selectedWall =
+            h.wallTint === 'warm'
+                ? wallWarmMat
+                : h.wallTint === 'sage'
+                  ? wallSageMat
+                  : h.wallTint === 'rose'
+                    ? wallRoseMat
+                    : wallMat;
         buildTownHouse(scene, ctx, {
             x: h.x,
             y: h.y ?? 0.2,
@@ -62,9 +86,11 @@ export async function buildArchitecture(
             d: h.d,
             rotY: h.rotY,
             roofMat,
-            wallMat,
+            wallMat: selectedWall,
             windowGlassMat,
             hasAwning: h.hasAwning,
+            kind: h.kind ?? 'cottage',
+            awningColor: h.awningColor,
         });
     });
 
@@ -127,12 +153,40 @@ function buildTownHouse(
         wallMat: THREE.MeshStandardMaterial;
         windowGlassMat: THREE.MeshStandardMaterial;
         hasAwning: boolean;
+        kind: string;
+        awningColor?: string;
     }
 ): void {
-    const { x, y, z, w, h, d, rotY, roofMat, wallMat, windowGlassMat, hasAwning } = opts;
+    const {
+        x,
+        y,
+        z,
+        w,
+        h,
+        d,
+        rotY,
+        roofMat,
+        wallMat,
+        windowGlassMat,
+        hasAwning,
+        kind,
+        awningColor,
+    } = opts;
     const house = new THREE.Group();
     house.position.set(x, y, z);
     house.rotation.y = rotY;
+
+    if (kind === 'pagoda' || kind === 'wizard_tower' || kind === 'greenhouse' || kind === 'rotunda') {
+        buildUniqueBuilding(house, ctx, { w, h, d, roofMat, wallMat, windowGlassMat, kind });
+        house.add(ctx.createContactShadow(w + 1.3, d + 1.3, 0.015));
+        scene.add(house);
+        const cosR = Math.abs(Math.cos(rotY));
+        const sinR = Math.abs(Math.sin(rotY));
+        const halfW = (w * cosR + d * sinR) * 0.52;
+        const halfD = (w * sinR + d * cosR) * 0.52;
+        ctx.addCollider(x - halfW, x + halfW, z - halfD, z + halfD);
+        return;
+    }
 
     // Stone foundation + front stone step
     const foundation = new THREE.Mesh(new THREE.BoxGeometry(w + 0.24, 0.36, d + 0.24), ctx.stoneWallMat);
@@ -270,22 +324,363 @@ function buildTownHouse(
     });
 
     if (hasAwning) {
+        const stripeHex =
+            awningColor ??
+            (kind === 'inn' ? '#dc2626' : kind === 'shop' ? '#0284c7' : '#d97706');
         const awningMat = new THREE.MeshStandardMaterial({
-            map: generateStripedAwningTexture('#d97706'),
+            map: generateStripedAwningTexture(stripeHex),
             roughness: 0.8,
         });
-        const awning = new THREE.Mesh(new THREE.BoxGeometry(w * 0.78, 0.08, 0.95), awningMat);
-        awning.position.set(0, 0.36 + 1.48, hd + 0.44);
+        const awning = new THREE.Mesh(new THREE.BoxGeometry(w * 0.82, 0.08, 0.98), awningMat);
+        awning.position.set(0, 0.36 + 1.48, hd + 0.46);
         awning.rotation.x = 0.28;
         awning.castShadow = true;
         house.add(awning);
+    }
+
+    // Archetype-specific props & architectural details
+    if (kind === 'inn') {
+        // Hanging Tavern Signboard
+        const signArm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.7), ctx.timberMat);
+        signArm.position.set(-hw * 0.55, 0.36 + h * 0.62, hd + 0.35);
+        house.add(signArm);
+        const signBoard = new THREE.Mesh(
+            new THREE.BoxGeometry(0.55, 0.42, 0.08),
+            new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.7 })
+        );
+        signBoard.position.set(-hw * 0.55, 0.36 + h * 0.62 - 0.28, hd + 0.65);
+        house.add(signBoard);
+
+        // Outdoor Bistro Tables & Stools
+        [-w * 0.28, w * 0.28].forEach((tx) => {
+            const tableTop = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.06, 10), ctx.woodMat);
+            tableTop.position.set(tx, 0.52, hd + 0.78);
+            tableTop.castShadow = true;
+            house.add(tableTop);
+            const tableLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.5, 6), ctx.timberMat);
+            tableLeg.position.set(tx, 0.26, hd + 0.78);
+            house.add(tableLeg);
+            const candle = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.08), windowGlassMat);
+            candle.position.set(tx, 0.6, hd + 0.78);
+            house.add(candle);
+        });
+    } else if (kind === 'shop') {
+        // Outdoor Merchandise Display Counter & Crates
+        const counter = new THREE.Mesh(new THREE.BoxGeometry(w * 0.55, 0.58, 0.46), ctx.woodMat);
+        counter.position.set(w * 0.18, 0.29, hd + 0.42);
+        counter.castShadow = true;
+        house.add(counter);
+        const basket = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.18, 0.14, 0.18, 8),
+            new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.7 })
+        );
+        basket.position.set(w * 0.08, 0.66, hd + 0.42);
+        house.add(basket);
+        const goods = new THREE.Mesh(
+            new THREE.BoxGeometry(0.28, 0.2, 0.24),
+            new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.6 })
+        );
+        goods.position.set(w * 0.3, 0.68, hd + 0.42);
+        house.add(goods);
+    } else if (kind === 'blacksmith') {
+        // Side Forge Hearth with Glowing Embers & Anvil
+        const forgeBase = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.82, 0.85), ctx.stoneWallMat);
+        forgeBase.position.set(hw + 0.48, 0.41, 0.1);
+        forgeBase.castShadow = true;
+        house.add(forgeBase);
+        const emberMat = new THREE.MeshStandardMaterial({
+            color: 0xf97316,
+            emissive: 0xea580c,
+            emissiveIntensity: 2.2,
+            roughness: 0.4,
+        });
+        const embers = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.18, 0.48), emberMat);
+        embers.position.set(hw + 0.48, 0.86, 0.1);
+        house.add(embers);
+        const forgeLight = new THREE.PointLight(0xf97316, 1.4, 5.5, 1.5);
+        forgeLight.position.set(hw + 0.48, 1.2, 0.2);
+        house.add(forgeLight);
+        const anvil = new THREE.Mesh(
+            new THREE.BoxGeometry(0.42, 0.28, 0.26),
+            new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7, roughness: 0.35 })
+        );
+        anvil.position.set(hw + 0.46, 0.46, 0.95);
+        house.add(anvil);
+    } else if (kind === 'clocktower') {
+        // Glowing Clock Dial on Front Gable & Banner Flags
+        const bezel = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.52, 0.52, 0.14, 16),
+            ctx.timberMat
+        );
+        bezel.rotation.x = Math.PI / 2;
+        bezel.position.set(0, 0.36 + h + roofH * 0.42, hd + 0.08);
+        house.add(bezel);
+        const dial = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.42, 0.42, 0.16, 16),
+            windowGlassMat
+        );
+        dial.rotation.x = Math.PI / 2;
+        dial.position.set(0, 0.36 + h + roofH * 0.42, hd + 0.09);
+        house.add(dial);
+        [-hw * 0.65, hw * 0.65].forEach((bx) => {
+            const banner = new THREE.Mesh(
+                new THREE.BoxGeometry(0.32, 1.05, 0.06),
+                new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.8 })
+            );
+            banner.position.set(bx, 0.36 + h * 0.62, hd + 0.12);
+            house.add(banner);
+        });
+    } else if (kind === 'apothecary') {
+        // Arcane / Herbalist Glowing Lantern Sign
+        const apothOrb = new THREE.Mesh(
+            new THREE.OctahedronGeometry(0.18, 0),
+            new THREE.MeshStandardMaterial({
+                color: 0x34d399,
+                emissive: 0x10b981,
+                emissiveIntensity: 1.8,
+                roughness: 0.2,
+            })
+        );
+        apothOrb.position.set(-hw * 0.58, 0.36 + h * 0.55, hd + 0.38);
+        house.add(apothOrb);
     }
 
     const contact = ctx.createContactShadow(w + 1.3, d + 1.3, 0.015);
     house.add(contact);
 
     scene.add(house);
-    ctx.addCollider(x - w * 0.52, x + w * 0.52, z - d * 0.52, z + d * 0.52);
+    const cosR = Math.abs(Math.cos(rotY));
+    const sinR = Math.abs(Math.sin(rotY));
+    const halfW = (w * cosR + d * sinR) * 0.52;
+    const halfD = (w * sinR + d * cosR) * 0.52;
+    ctx.addCollider(x - halfW, x + halfW, z - halfD, z + halfD);
+}
+
+function buildUniqueBuilding(
+    house: THREE.Group,
+    ctx: WorldContext,
+    opts: {
+        w: number;
+        h: number;
+        d: number;
+        roofMat: THREE.MeshStandardMaterial;
+        wallMat: THREE.MeshStandardMaterial;
+        windowGlassMat: THREE.MeshStandardMaterial;
+        kind: 'pagoda' | 'wizard_tower' | 'greenhouse' | 'rotunda';
+    }
+): void {
+    const { w, h, d, roofMat, wallMat, windowGlassMat, kind } = opts;
+
+    if (kind === 'pagoda') {
+        // 2-tier Eastern Pagoda / Tea Pavilion with flared roofs, red pillars & paper lanterns
+        const lacquerMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.55 });
+        const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.6, roughness: 0.3 });
+
+        const base = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, 0.34, d + 0.3), ctx.stoneWallMat);
+        base.position.y = 0.17;
+        base.castShadow = true;
+        base.receiveShadow = true;
+        house.add(base);
+
+        const body1 = new THREE.Mesh(new THREE.BoxGeometry(w * 0.88, h * 0.52, d * 0.88), wallMat);
+        body1.position.y = 0.34 + h * 0.26;
+        body1.castShadow = true;
+        house.add(body1);
+
+        // Red corner pillars
+        [-w * 0.46, w * 0.46].forEach((px) => {
+            [-d * 0.46, d * 0.46].forEach((pz) => {
+                const p = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, h * 0.56, 8), lacquerMat);
+                p.position.set(px, 0.34 + h * 0.28, pz);
+                p.castShadow = true;
+                house.add(p);
+            });
+        });
+
+        // Tier 1 Flared Roof
+        const roof1 = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.85, 0.85, 4), roofMat);
+        roof1.rotation.y = Math.PI / 4;
+        roof1.position.y = 0.34 + h * 0.52 + 0.35;
+        roof1.castShadow = true;
+        house.add(roof1);
+
+        // Tier 2 Upper Chamber & Spire
+        const body2 = new THREE.Mesh(new THREE.BoxGeometry(w * 0.62, h * 0.38, d * 0.62), wallMat);
+        body2.position.y = 0.34 + h * 0.72;
+        body2.castShadow = true;
+        house.add(body2);
+
+        const win2 = new THREE.Mesh(new THREE.BoxGeometry(w * 0.32, 0.42, d * 0.65), windowGlassMat);
+        win2.position.y = 0.34 + h * 0.72;
+        house.add(win2);
+
+        const roof2 = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.64, 1.05, 4), roofMat);
+        roof2.rotation.y = Math.PI / 4;
+        roof2.position.y = 0.34 + h * 0.92 + 0.45;
+        roof2.castShadow = true;
+        house.add(roof2);
+
+        const finial = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.12, 0.65, 8), goldMat);
+        finial.position.y = 0.34 + h * 0.92 + 1.15;
+        house.add(finial);
+
+        // Front door & hanging red lanterns
+        const door = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.25, 0.12), lacquerMat);
+        door.position.set(0, 0.34 + 0.62, d * 0.45);
+        house.add(door);
+
+        [-w * 0.42, w * 0.42].forEach((lx) => {
+            const lantern = new THREE.Mesh(
+                new THREE.SphereGeometry(0.18, 10, 10),
+                new THREE.MeshStandardMaterial({
+                    color: 0xef4444,
+                    emissive: 0xf97316,
+                    emissiveIntensity: 1.6,
+                })
+            );
+            lantern.scale.set(0.9, 1.25, 0.9);
+            lantern.position.set(lx, 0.34 + h * 0.45, d * 0.56);
+            house.add(lantern);
+        });
+    } else if (kind === 'wizard_tower') {
+        // Cylindrical Stone Wizard Tower with Spiral Balcony, Conical Roof & Floating Crystal
+        const r = Math.min(w, d) * 0.46;
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.18, r + 0.28, 0.4, 14), ctx.stoneWallMat);
+        base.position.y = 0.2;
+        base.castShadow = true;
+        house.add(base);
+
+        const tower = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.92, r, h, 14), ctx.stoneWallMat);
+        tower.position.y = 0.4 + h / 2;
+        tower.castShadow = true;
+        tower.receiveShadow = true;
+        house.add(tower);
+
+        // Wooden balcony ring
+        const balcony = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.34, r + 0.25, 0.18, 14), ctx.timberMat);
+        balcony.position.y = 0.4 + h * 0.62;
+        balcony.castShadow = true;
+        house.add(balcony);
+
+        // Conical Wizard Hat Roof
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(r + 0.45, h * 0.72, 14), roofMat);
+        cone.position.y = 0.4 + h + h * 0.34;
+        cone.castShadow = true;
+        house.add(cone);
+
+        // Glowing Arcane Orb on Spire
+        const orb = new THREE.Mesh(
+            new THREE.OctahedronGeometry(0.28, 0),
+            new THREE.MeshStandardMaterial({
+                color: 0xc084fc,
+                emissive: 0xa855f7,
+                emissiveIntensity: 2.2,
+            })
+        );
+        orb.position.y = 0.4 + h + h * 0.74;
+        house.add(orb);
+
+        // Glowing arched windows & wooden door
+        const door = new THREE.Mesh(new THREE.BoxGeometry(0.72, 1.25, 0.2), ctx.woodMat);
+        door.position.set(0, 0.4 + 0.62, r - 0.04);
+        house.add(door);
+
+        [0, Math.PI * 0.5, -Math.PI * 0.5].forEach((ang) => {
+            const win = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.62, 0.18), windowGlassMat);
+            win.position.set(Math.sin(ang) * (r * 0.93), 0.4 + h * 0.78, Math.cos(ang) * (r * 0.93));
+            win.rotation.y = ang;
+            house.add(win);
+        });
+    } else if (kind === 'greenhouse') {
+        // Glass & Timber Conservatory filled with lush glowing plants
+        const glassMat = new THREE.MeshStandardMaterial({
+            color: 0xa5f3fc,
+            emissive: 0x0ea5e9,
+            emissiveIntensity: 0.22,
+            transparent: true,
+            opacity: 0.52,
+            roughness: 0.1,
+            metalness: 0.15,
+        });
+        const base = new THREE.Mesh(new THREE.BoxGeometry(w + 0.16, 0.46, d + 0.16), ctx.stoneWallMat);
+        base.position.y = 0.23;
+        base.castShadow = true;
+        house.add(base);
+
+        const glassBody = new THREE.Mesh(new THREE.BoxGeometry(w, h * 0.74, d), glassMat);
+        glassBody.position.y = 0.46 + h * 0.37;
+        house.add(glassBody);
+
+        // Timber frame ribs
+        [-w / 2, 0, w / 2].forEach((fx) => {
+            [-d / 2, d / 2].forEach((fz) => {
+                const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, h * 0.76, 0.12), ctx.timberMat);
+                post.position.set(fx, 0.46 + h * 0.38, fz);
+                house.add(post);
+            });
+        });
+
+        // Curved/pitched glass roof
+        const roof = new THREE.Mesh(
+            new THREE.CylinderGeometry(w * 0.52, w * 0.52, d + 0.2, 8, 1, false, 0, Math.PI),
+            glassMat
+        );
+        roof.rotation.z = Math.PI / 2;
+        roof.rotation.y = Math.PI / 2;
+        roof.position.y = 0.46 + h * 0.74;
+        house.add(roof);
+
+        // Indoor glowing flowers & foliage visible through glass
+        const leafMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.8 });
+        const bloomMat = new THREE.MeshStandardMaterial({
+            color: 0xf472b6,
+            emissive: 0xec4899,
+            emissiveIntensity: 0.65,
+        });
+        [-w * 0.26, 0, w * 0.26].forEach((px, idx) => {
+            const bush = new THREE.Mesh(new THREE.DodecahedronGeometry(0.42, 0), leafMat);
+            bush.position.set(px, 0.78, (idx % 2 === 0 ? -0.3 : 0.3));
+            house.add(bush);
+            const flower = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 6), bloomMat);
+            flower.position.set(px, 1.15, (idx % 2 === 0 ? -0.3 : 0.3));
+            house.add(flower);
+        });
+    } else if (kind === 'rotunda') {
+        // Octagonal Guild Hall / Round Tavern with Domed Roof & Wrap-Around Columns
+        const r = Math.min(w, d) * 0.48;
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.24, r + 0.32, 0.36, 8), ctx.stoneWallMat);
+        base.position.y = 0.18;
+        base.castShadow = true;
+        house.add(base);
+
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.88, r * 0.9, h * 0.85, 8), wallMat);
+        body.position.y = 0.36 + h * 0.425;
+        body.castShadow = true;
+        house.add(body);
+
+        // Wrap-around porch columns
+        for (let i = 0; i < 8; i++) {
+            const ang = (i / 8) * Math.PI * 2 + Math.PI / 8;
+            const col = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, h * 0.85, 8), ctx.timberMat);
+            col.position.set(Math.cos(ang) * (r + 0.05), 0.36 + h * 0.425, Math.sin(ang) * (r + 0.05));
+            col.castShadow = true;
+            house.add(col);
+        }
+
+        // Domed Roof + Cupola Lantern
+        const dome = new THREE.Mesh(new THREE.SphereGeometry(r + 0.22, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.52), roofMat);
+        dome.position.y = 0.36 + h * 0.84;
+        dome.castShadow = true;
+        house.add(dome);
+
+        const cupola = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.48, 8), windowGlassMat);
+        cupola.position.y = 0.36 + h * 0.84 + (r + 0.22) * 0.88;
+        house.add(cupola);
+
+        const door = new THREE.Mesh(new THREE.BoxGeometry(0.84, 1.32, 0.18), ctx.woodMat);
+        door.position.set(0, 0.36 + 0.66, r * 0.88);
+        house.add(door);
+    }
 }
 
 function buildMarketStall(

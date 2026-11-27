@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { createStreamWaterMaterial, WaterUniforms } from '../graphics/WaterShader';
+import {
+    createStreamWaterMaterial,
+    createWaterfallMaterial,
+    createWaterfallSplashMaterial,
+    WaterUniforms,
+} from '../graphics/WaterShader';
+import { loadEdgeKeyedTexture } from '../graphics/SpriteKeying';
 import { WorldContext } from './WorldContext';
 import townMap from '../data/town_map.json';
 
@@ -47,10 +53,16 @@ function createRoundedSlabGeometry(
     return geo;
 }
 
+export interface TerrainRefs {
+    waterUniforms: WaterUniforms;
+    goddessLight: THREE.PointLight;
+    goddessGlowMat: THREE.MeshStandardMaterial;
+}
+
 export function buildTerrain(
     scene: THREE.Scene,
     ctx: WorldContext
-): { waterUniforms: WaterUniforms } {
+): TerrainRefs {
     const { material: waterMat, uniforms: waterUniforms } = createStreamWaterMaterial();
 
     // West & East Base Grass Terrains
@@ -157,28 +169,29 @@ export function buildTerrain(
         color: 0x64748b,
     });
     reflector.rotation.x = -Math.PI / 2;
-    reflector.position.set(0, -0.44, -3);
+    reflector.position.set(0, -0.47, -3);
     scene.add(reflector);
 
     const waterSurface = new THREE.Mesh(new THREE.PlaneGeometry(5.8, 44, 1, 1), waterMat);
     waterSurface.rotation.x = -Math.PI / 2;
-    waterSurface.position.set(0, -0.42, -3);
+    waterSurface.position.set(0, -0.41, -3);
     scene.add(waterSurface);
 
     // Wooden Pier on West Bank Cove
     buildWoodenPier(scene, ctx);
 
-    // Soft Rounded Cobblestone Plazas & Pathways
+    // Soft Rounded Cobblestone Plazas & Pathways (staggered Y prevents Z-fighting on overlaps)
     const curbMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.88 });
-    townMap.plazas.forEach((p) => {
+    townMap.plazas.forEach((p, idx) => {
         const yBase = p.y ?? 0.2;
         const rad = p.radius ?? 1.2;
+        const yStagger = idx * 0.003;
 
         const plaza = new THREE.Mesh(
             createRoundedSlabGeometry(p.w, p.d, 0.04, rad, 0.015),
             ctx.cobbleMat
         );
-        plaza.position.set(p.x, yBase + 0.005, p.z);
+        plaza.position.set(p.x, yBase + 0.005 + yStagger, p.z);
         plaza.receiveShadow = true;
         scene.add(plaza);
         ctx.walkableFloors.push(plaza);
@@ -188,7 +201,7 @@ export function buildTerrain(
                 createRoundedSlabGeometry(p.w + 0.26, p.d + 0.26, 0.025, rad + 0.13, 0.015),
                 curbMat
             );
-            curb.position.set(p.x, yBase - 0.005, p.z);
+            curb.position.set(p.x, yBase - 0.006 + yStagger * 0.5, p.z);
             curb.receiveShadow = true;
             scene.add(curb);
         }
@@ -196,64 +209,150 @@ export function buildTerrain(
 
     townMap.bridges.forEach((b) => buildArchedBridge(scene, ctx, b.centerZ));
     buildRiverDetails(scene, ctx);
-    buildWaterfallSource(scene, ctx);
+    const { goddessLight, goddessGlowMat } = buildWaterfallSource(scene, ctx, waterUniforms);
 
-    return { waterUniforms };
+    return { waterUniforms, goddessLight, goddessGlowMat };
 }
 
-function buildWaterfallSource(scene: THREE.Scene, ctx: WorldContext): void {
+function buildWaterfallSource(
+    scene: THREE.Scene,
+    ctx: WorldContext,
+    waterUniforms: WaterUniforms
+): { goddessLight: THREE.PointLight; goddessGlowMat: THREE.MeshStandardMaterial } {
     const wfGroup = new THREE.Group();
     wfGroup.position.set(0, 0, -22.2);
 
-    // Rocky cliff behind the waterfall
-    const cliff = new THREE.Mesh(new THREE.BoxGeometry(7.2, 4.6, 2.4), ctx.stoneWallMat);
-    cliff.position.set(0, 1.5, -1.2);
+    // Layered natural rocky cliff behind the waterfall
+    const cliff = new THREE.Mesh(new THREE.BoxGeometry(7.6, 4.8, 2.4), ctx.stoneWallMat);
+    cliff.position.set(0, 1.5, -1.35);
     cliff.castShadow = true;
     cliff.receiveShadow = true;
     wfGroup.add(cliff);
 
-    // Flanking boulders
+    // Organic flanking & ledge boulders
+    const mossMat = new THREE.MeshStandardMaterial({ color: 0x4d7c0f, roughness: 0.9 });
     [
-        [-3.0, 0.8, 0.2, 1.25],
-        [3.0, 0.8, 0.2, 1.3],
-        [-2.2, 1.8, -0.3, 1.0],
-        [2.2, 1.8, -0.3, 1.05],
-    ].forEach(([bx, by, bz, br]) => {
-        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(br, 0), ctx.stoneWallMat);
+        [-3.1, 0.7, 0.25, 1.35],
+        [3.1, 0.7, 0.25, 1.35],
+        [-2.3, 2.1, -0.2, 1.1],
+        [2.3, 2.1, -0.2, 1.15],
+        [-1.8, 3.2, -0.4, 0.95],
+        [1.8, 3.2, -0.4, 0.95],
+        [-2.5, -0.1, 0.65, 0.78],
+        [2.5, -0.1, 0.65, 0.82],
+    ].forEach(([bx, by, bz, br], idx) => {
+        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(br, 1), ctx.stoneWallMat);
         rock.position.set(bx, by, bz);
-        rock.rotation.set(bx, bz, 0.3);
+        rock.rotation.set(bx * 0.4, bz * 0.7, idx * 0.5);
+        rock.scale.set(1.1, 0.85, 1.0);
         rock.castShadow = true;
+        rock.receiveShadow = true;
         wfGroup.add(rock);
+
+        if (idx < 4) {
+            const mossCap = new THREE.Mesh(new THREE.DodecahedronGeometry(br * 0.65, 0), mossMat);
+            mossCap.position.set(bx, by + br * 0.48, bz);
+            mossCap.scale.set(1.1, 0.35, 1.0);
+            wfGroup.add(mossCap);
+        }
     });
 
-    // Cascading water sheet
-    const fallMat = new THREE.MeshStandardMaterial({
-        color: 0x38bdf8,
-        emissive: 0x0284c7,
-        emissiveIntensity: 0.35,
-        roughness: 0.15,
-        transparent: true,
-        opacity: 0.86,
-    });
-    const fallSheet = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.8), fallMat);
-    fallSheet.position.set(0, 1.35, 0.08);
+    // Animated GLSL Waterfall Curtain (curved geometry + organic scrolling foam)
+    const fallMat = createWaterfallMaterial(waterUniforms);
+    const fallSheet = new THREE.Mesh(new THREE.PlaneGeometry(3.8, 4.1, 16, 18), fallMat);
+    fallSheet.position.set(0, 1.45, 0.08);
     wfGroup.add(fallSheet);
 
-    // White foam streaks & splash pool at the base
-    const foamMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.8 });
-    [-0.9, 0, 0.9].forEach((fx) => {
-        const streak = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 3.5), foamMat);
-        streak.position.set(fx, 1.35, 0.12);
-        wfGroup.add(streak);
-    });
+    // Churning radial splash pool & mist at the base
+    const splashMat = createWaterfallSplashMaterial(waterUniforms);
+    const splashPool = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 3.4), splashMat);
+    splashPool.rotation.x = -Math.PI / 2;
+    splashPool.position.set(0, -0.38, 0.85);
+    wfGroup.add(splashPool);
 
-    const splashFoam = new THREE.Mesh(new THREE.CircleGeometry(1.9, 16), foamMat);
-    splashFoam.rotation.x = -Math.PI / 2;
-    splashFoam.scale.set(1.2, 0.65, 1);
-    splashFoam.position.set(0, -0.39, 0.55);
-    wfGroup.add(splashFoam);
+    // Majestic Water Goddess Statue crowning the cliff above the waterfall
+    const { goddessLight, goddessGlowMat } = buildWaterGoddessStatue(wfGroup, ctx);
 
     scene.add(wfGroup);
+    return { goddessLight, goddessGlowMat };
+}
+
+function buildWaterGoddessStatue(
+    wfGroup: THREE.Group,
+    ctx: WorldContext
+): { goddessLight: THREE.PointLight; goddessGlowMat: THREE.MeshStandardMaterial } {
+    const statueGroup = new THREE.Group();
+    statueGroup.position.set(0, 3.9, -1.25);
+
+    const goldMat = new THREE.MeshStandardMaterial({
+        color: 0xfbbf24,
+        emissive: 0xb45309,
+        emissiveIntensity: 0.2,
+        roughness: 0.28,
+        metalness: 0.72,
+    });
+    const basinGlowMat = new THREE.MeshStandardMaterial({
+        color: 0x67e8f9,
+        emissive: 0x22d3ee,
+        emissiveIntensity: 1.1,
+        roughness: 0.15,
+    });
+
+    // 1. Grand Tiered Octagonal Stone Pedestal & Water Basin
+    const ped1 = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.45, 0.45, 8), ctx.stoneWallMat);
+    ped1.position.y = 0.22;
+    ped1.castShadow = true;
+    ped1.receiveShadow = true;
+    statueGroup.add(ped1);
+
+    const basinRim = new THREE.Mesh(new THREE.TorusGeometry(1.65, 0.14, 8, 24), goldMat);
+    basinRim.rotation.x = Math.PI / 2;
+    basinRim.position.y = 0.48;
+    statueGroup.add(basinRim);
+
+    const basinWater = new THREE.Mesh(new THREE.CircleGeometry(1.58, 20), basinGlowMat);
+    basinWater.rotation.x = -Math.PI / 2;
+    basinWater.position.y = 0.47;
+    statueGroup.add(basinWater);
+
+    // 2. Sacred Stone Arch & Pillars framing the Goddess behind her
+    const archRing = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.18, 10, 28, Math.PI), ctx.stoneWallMat);
+    archRing.position.set(0, 2.8, -0.55);
+    archRing.castShadow = true;
+    statueGroup.add(archRing);
+
+    [-2.6, 2.6].forEach((px) => {
+        const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 2.8, 8), ctx.stoneWallMat);
+        pillar.position.set(px, 1.4, -0.55);
+        pillar.castShadow = true;
+        statueGroup.add(pillar);
+    });
+
+    // 3. HD-2D Illustrated Water Goddess Statue (edge-keyed sprite so marble stays 100% solid)
+    const goddessTex = loadEdgeKeyedTexture('./assets/water_goddess_statue.jpg', 26);
+    const goddessGlowMat = new THREE.MeshStandardMaterial({
+        map: goddessTex,
+        emissiveMap: goddessTex,
+        color: 0xffffff,
+        emissive: 0x38bdf8,
+        emissiveIntensity: 0.35,
+        roughness: 0.4,
+        transparent: true,
+        alphaTest: 0.4,
+        side: THREE.DoubleSide,
+    });
+
+    const statuePlane = new THREE.Mesh(new THREE.PlaneGeometry(3.8, 5.05), goddessGlowMat);
+    statuePlane.position.set(0, 2.72, 0.05);
+    statueGroup.add(statuePlane);
+
+    // 4. Nighttime Aura PointLight
+    const goddessLight = new THREE.PointLight(0x38bdf8, 2.0, 20, 1.4);
+    goddessLight.position.set(0, 3.8, 1.3);
+    statueGroup.add(goddessLight);
+
+    wfGroup.add(statueGroup);
+    return { goddessLight, goddessGlowMat };
 }
 
 function buildStoneStairs(
