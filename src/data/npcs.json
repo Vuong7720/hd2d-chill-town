@@ -1,0 +1,65 @@
+[
+  {
+    "id": "barnaby",
+    "name": "Lão Ngư Ông Barnaby",
+    "role": "Người gác cầu",
+    "x": -3.2,
+    "y": 0.2,
+    "z": 1.8,
+    "facing": 1,
+    "palette": {
+      "H": "#e2e8f0",
+      "h": "#ffffff",
+      "d": "#94a3b8",
+      "R": "#0284c7",
+      "B": "#0f766e",
+      "b": "#115e59"
+    },
+    "lines": [
+      "Chào nhà lữ hành! Thị trấn Suối Bạc nay đã quy hoạch lại thành 3 tầng thung lũng với bến nước nhỏ và đồi Đền Pha Lê trên cao đấy.",
+      "Nếu cậu chuyển sang thời điểm \"Đêm Lễ Hội\" ở góc trên bên phải, cả thị trấn sẽ thắp sáng đèn lồng và bắn pháo hoa rực rỡ!"
+    ]
+  },
+  {
+    "id": "clara",
+    "name": "Tiểu Thư Clara",
+    "role": "Thương nhân Chợ Tây",
+    "x": -9.4,
+    "y": 0.2,
+    "z": 3.4,
+    "facing": 1,
+    "palette": {
+      "H": "#facc15",
+      "h": "#fef08a",
+      "d": "#ca8a04",
+      "R": "#ec4899",
+      "B": "#db2777",
+      "b": "#be185d"
+    },
+    "lines": [
+      "Chào mừng tới Quảng Trường Tròn Chợ Tây! Tớ đang bày bán đèn lồng giấy và bánh mật ong bên giếng đá cổ.",
+      "Cậu thử leo bậc thang đá lên Đồi Cối Xay Gió phía Tây Bắc hoặc Đồi Đền Pha Lê phía Đông xem, cảnh trên đó đẹp mê hồn!"
+    ]
+  },
+  {
+    "id": "kaelen",
+    "name": "Pháp Sư Kaelen",
+    "role": "Người giữ Đền Pha Lê",
+    "x": 12.2,
+    "y": 1.4,
+    "z": -4.6,
+    "facing": -1,
+    "palette": {
+      "H": "#6366f1",
+      "h": "#a5b4fc",
+      "d": "#3730a3",
+      "R": "#a855f7",
+      "B": "#4f46e5",
+      "b": "#3730a3"
+    },
+    "lines": [
+      "Từ đỉnh đồi Đền Pha Lê này có thể phóng tầm mắt ngắm trọn thung lũng và dòng suối bạc bên dưới.",
+      "Ngoài trò chuyện với dân làng, cậu còn có thể tiến lại gần các cột đèn đường và nhấn [E] để bật hoặc tắt chúng!"
+    ]
+  }
+]

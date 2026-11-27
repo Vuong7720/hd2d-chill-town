@@ -1,0 +1,23 @@
+{
+  "id": "crystal_fireflies",
+  "title": "Ánh Sáng Đền Pha Lê",
+  "giverId": "barnaby",
+  "description": "Thu thập 3 Đom Đóm Pha Lê trên Đồi Đền Pha Lê (phía Đông) và mang về cho Lão Ngư Ông Barnaby.",
+  "requiredCount": 3,
+  "items": [
+    { "x": 12.6, "y": 1.4, "z": -7.8 },
+    { "x": 16.4, "y": 1.4, "z": -3.2 },
+    { "x": 15.8, "y": 1.4, "z": -6.8 }
+  ],
+  "dialogueOffer": [
+    "Này nhà lữ hành! Dạo này sương đêm dày quá, đèn đường đôi khi không đủ soi bước chân.",
+    "Nếu cậu leo bậc thang đá lên Đồi Đền Pha Lê phía Đông, thu thập giúp lão 3 Đom Đóm Pha Lê, lão sẽ tặng cậu chiếc Đèn Lồng Cầm Tay!"
+  ],
+  "dialogueProgress": [
+    "Cậu đã tìm được {count}/3 Đom Đóm Pha Lê rồi. Hãy tìm quanh Cổng Torii trên Đồi Đền Pha Lê phía Đông nhé!"
+  ],
+  "dialogueComplete": [
+    "Tuyệt vời! Đủ 3 Đom Đóm Pha Lê rồi! Hãy nhận lấy chiếc Đèn Lồng Cầm Tay này.",
+    "Từ giờ cậu có thể nhấn phím [F] bất cứ lúc nào để bật hoặc tắt đèn lồng soi sáng xung quanh mình!"
+  ]
+}
