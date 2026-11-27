@@ -1,3 +1,8 @@
+export const DEFAULT_LOCAL_TRACK: LocalTrack = {
+    name: 'Canon in D Major (Piano)',
+    url: './assets/' + encodeURIComponent('Canon in D Major A Piano Tribute to Pachelbel.mp3'),
+};
+
 export const DEFAULT_YOUTUBE_URL =
     'https://www.youtube.com/watch?v=Gio1Ss0p0dE&list=RDGio1Ss0p0dE&start_radio=1';
 
@@ -10,8 +15,8 @@ export type PlayerSourceMode = 'local' | 'youtube';
 
 export class MusicPlayer {
     public mode: PlayerSourceMode = 'local';
-    public tracks: LocalTrack[] = [];
-    public currentIndex = -1;
+    public tracks: LocalTrack[] = [DEFAULT_LOCAL_TRACK];
+    public currentIndex = 0;
     public isPlaying = false;
     public shuffle = false;
     public repeatOne = false;
@@ -34,7 +39,12 @@ export class MusicPlayer {
         const onFirstGesture = () => {
             if (this.hasUserInteracted) return;
             this.hasUserInteracted = true;
-            if (this.mode === 'youtube' && this.ytIframe && !this.userPaused) {
+            if (this.userPaused) return;
+
+            if (this.mode === 'local' && this.tracks.length > 0 && this.audioEl.paused) {
+                this.ensureAudioGraph();
+                this.audioEl.play().catch(() => {});
+            } else if (this.mode === 'youtube' && this.ytIframe) {
                 this.postYtCommand('unMute');
                 this.postYtCommand('setVolume', [Math.round(this.musicVolume * 100)]);
                 this.postYtCommand('playVideo');
@@ -46,6 +56,8 @@ export class MusicPlayer {
         window.addEventListener('keydown', onFirstGesture, { once: true, capture: true });
         this.audioEl = new Audio();
         this.audioEl.crossOrigin = 'anonymous';
+        this.audioEl.src = DEFAULT_LOCAL_TRACK.url;
+        this.audioEl.volume = this.musicVolume;
 
         this.audioEl.addEventListener('ended', () => {
             if (this.repeatOne) {
@@ -147,14 +159,17 @@ export class MusicPlayer {
         }
 
         if (this.tracks.length === 0) return;
+        this.hasUserInteracted = true;
         this.ensureAudioGraph();
         if (this.currentIndex === -1) {
             this.playIndex(0);
             return;
         }
         if (this.audioEl.paused) {
+            this.userPaused = false;
             this.audioEl.play().catch(() => {});
         } else {
+            this.userPaused = true;
             this.audioEl.pause();
         }
     }

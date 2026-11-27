@@ -79,16 +79,16 @@
 
                 <!-- Source Tabs -->
                 <div class="flex gap-1.5 mb-2">
-                    <button id="tab-local-music" class="flex-1 py-1.5 rounded-lg text-[11px] font-medium bg-white/5 text-slate-300 border border-transparent cursor-pointer">
+                    <button id="tab-local-music" class="flex-1 py-1.5 rounded-lg text-[11px] font-medium bg-amber-500/30 text-amber-200 border border-amber-400/50 cursor-pointer">
                         📁 Nhạc máy tính
                     </button>
-                    <button id="tab-yt-music" class="flex-1 py-1.5 rounded-lg text-[11px] font-medium bg-rose-500/30 text-rose-200 border border-rose-400/50 cursor-pointer">
+                    <button id="tab-yt-music" class="flex-1 py-1.5 rounded-lg text-[11px] font-medium bg-white/5 text-slate-300 border border-transparent cursor-pointer">
                         ▶️ YouTube VN
                     </button>
                 </div>
 
                 <!-- Local Files Pane -->
-                <div id="music-local-pane" class="hidden">
+                <div id="music-local-pane">
                     <input type="file" id="music-file-input" accept="audio/*" multiple class="hidden">
                     <button id="pick-music-btn" class="w-full py-2 sm:py-1.5 mb-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/40 text-amber-200 text-[11px] font-medium transition cursor-pointer">
                         + Chọn file nhạc (.mp3, .flac, .m4a...)
@@ -97,7 +97,7 @@
                 </div>
 
                 <!-- YouTube URL / Playlist Pane -->
-                <div id="music-yt-pane" class="space-y-2">
+                <div id="music-yt-pane" class="hidden space-y-2">
                     <div class="flex gap-1.5">
                         <input id="yt-url-input" type="text" placeholder="Dán link Video hoặc Playlist YouTube..." class="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-white/15 text-[11px] text-slate-100 outline-none focus:border-rose-400">
                         <button id="yt-load-btn" class="px-3 py-1.5 rounded-lg bg-rose-500/80 hover:bg-rose-500 text-white text-[11px] font-medium transition cursor-pointer">Phát</button>

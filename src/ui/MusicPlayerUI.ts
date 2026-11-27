@@ -120,10 +120,9 @@ export class MusicPlayerUI {
 
         this.player.onStateChange = () => this.refreshUI();
 
-        // Mặc định mở sẵn tab YouTube và phát link nhạc mặc định khi khởi động
+        // Mặc định phát nhạc local để tiết kiệm dung lượng trên điện thoại; giữ sẵn link YouTube ở tab YouTube
         this.ytInput.value = DEFAULT_YOUTUBE_URL;
-        this.switchTab('youtube');
-        this.player.loadYouTubeUrl(DEFAULT_YOUTUBE_URL, true);
+        this.switchTab('local');
         this.refreshUI();
     }
 
